@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 import "./App.css";
+import * as tmImage from '@teachablemachine/image';
 
 const BAIRROS = [
   "Aparecida","Boqueirão","Campo Grande","Caneleira","Centro",
@@ -9,7 +10,6 @@ const BAIRROS = [
   "Ponta da Praia","Rádio Clube","Saboó","Santa Maria","Santana",
   "Santo Antônio","São Jorge","Valongo","Vila Belmiro","Vila Mathias"
 ];
-
 const STATUS = {
   critico: { label: "Crítico 🔴", cor: "#C0392B", bg: "#FDEDEC", texto: "#922B21", dias: 0 },
   alta:    { label: "Alta 🚨",    cor: "#E24B4A", bg: "#FCEBEB", texto: "#A32D2D", dias: 3 },
@@ -305,6 +305,8 @@ function ResumoBairros({ registros }) {
 }
 
 // ── NOVA VISTORIA ─────────────────────────────────────────────────────────────
+// ── NOVA VISTORIA COM IA ──────────────────────────────────────────────────────
+// ── NOVA VISTORIA COM IA ──────────────────────────────────────────────────────
 function Vistoria({ salvar, voltar }) {
   const [form, setForm] = useState({
     local:"", bairro:"", metragem:"",
@@ -314,16 +316,75 @@ function Vistoria({ salvar, voltar }) {
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
+  const [analisando, setAnalisando] = useState(false);
+  const [resultadoIA, setResultadoIA] = useState(null);
+
+  const MODEL_URL = "https://teachablemachine.withgoogle.com/models/OqjPHgl8hh/";
 
   const set = (campo, valor) => setForm(f => ({...f, [campo]:valor}));
 
-  const handleFoto = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => set("foto", ev.target.result);
-    reader.readAsDataURL(file);
-  };
+  const handleFoto = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  // Mostra preview
+  const reader = new FileReader();
+  reader.onload = ev => set("foto", ev.target.result);
+  reader.readAsDataURL(file);
+
+  // Analisa com IA
+  setAnalisando(true);
+  setResultadoIA(null);
+
+  try {
+    const tmImage = await import('@teachablemachine/image');
+    const MODEL_URL = "https://teachablemachine.withgoogle.com/models/OqjPHgl8hh/";
+    const modelURL = MODEL_URL + "model.json";
+    const metaURL  = MODEL_URL + "metadata.json";
+
+    const model = await tmImage.load(modelURL, metaURL);
+
+    const img = document.createElement("img");
+    img.crossOrigin = "anonymous";
+    img.src = URL.createObjectURL(file);
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = rej;
+    });
+
+    const predictions = await model.predict(img);
+
+    const melhor = predictions.reduce((a, b) =>
+      a.probability > b.probability ? a : b
+    );
+
+    const mapa = {
+      "Grama Alta":  "alta",
+      "Grama Media": "media",
+      "Grama Média": "media",
+      "Grama Baixa": "baixa",
+    };
+
+    const statusDetectado = mapa[melhor.className] || "media";
+    const confianca = Math.round(melhor.probability * 100);
+
+    setResultadoIA({
+      classe: melhor.className,
+      confianca,
+      status: statusDetectado,
+      todas: predictions
+    });
+
+    set("status", statusDetectado);
+    set("diasCorte", STATUS[statusDetectado]?.dias || 10);
+
+  } catch (err) {
+    console.error("Erro na IA:", err);
+    setResultadoIA({ erro: "Não foi possível analisar a imagem." });
+  }
+
+  setAnalisando(false);
+};
 
   const handleSubmit = async () => {
     if (!form.local)  { setErro("Informe o local."); return; }
@@ -350,7 +411,8 @@ function Vistoria({ salvar, voltar }) {
       <div className="form-grid">
         <div className="form-group">
           <label>Local / Praça / Rua</label>
-          <input placeholder="Ex: Praça das Bandeiras" value={form.local} onChange={e=>set("local",e.target.value)} />
+          <input placeholder="Ex: Praça das Bandeiras" value={form.local}
+            onChange={e=>set("local",e.target.value)} />
         </div>
         <div className="form-group">
           <label>Bairro</label>
@@ -361,14 +423,69 @@ function Vistoria({ salvar, voltar }) {
         </div>
         <div className="form-group">
           <label>Metragem (m²)</label>
-          <input type="number" placeholder="Ex: 150" value={form.metragem} onChange={e=>set("metragem",e.target.value)} />
+          <input type="number" placeholder="Ex: 150" value={form.metragem}
+            onChange={e=>set("metragem",e.target.value)} />
         </div>
         <div className="form-group">
           <label>Data da vistoria</label>
-          <input type="date" value={form.data} onChange={e=>set("data",e.target.value)} />
+          <input type="date" value={form.data}
+            onChange={e=>set("data",e.target.value)} />
         </div>
       </div>
 
+      {/* FOTO + IA */}
+      <div className="form-group full" style={{marginBottom:16}}>
+        <label>📷 Foto da grama — IA analisa automaticamente</label>
+        <input type="file" accept="image/*" onChange={handleFoto} />
+
+        {analisando && (
+          <div style={{marginTop:10,padding:"12px 16px",background:"#EAF3DE",borderRadius:8,
+            border:"1px solid #C0DD97",fontSize:13,color:"#3B6D11",display:"flex",
+            alignItems:"center",gap:8}}>
+            <span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>🔄</span>
+            Analisando imagem com IA...
+          </div>
+        )}
+
+        {resultadoIA && !resultadoIA.erro && (
+          <div style={{marginTop:10,padding:"14px 16px",background:"#EAF3DE",borderRadius:8,
+            border:"1px solid #C0DD97"}}>
+            <p style={{fontSize:13,fontWeight:600,color:"#3B6D11",marginBottom:8}}>
+              🤖 IA detectou: {resultadoIA.classe} ({resultadoIA.confianca}% de confiança)
+            </p>
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              {resultadoIA.todas.map(p => (
+                <div key={p.className} style={{display:"flex",alignItems:"center",gap:8,fontSize:12}}>
+                  <span style={{width:90,color:"#555"}}>{p.className}</span>
+                  <div style={{flex:1,height:6,background:"#f0f0f0",borderRadius:99,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${Math.round(p.probability*100)}%`,
+                      background:"#639922",borderRadius:99}} />
+                  </div>
+                  <span style={{width:35,textAlign:"right",color:"#666"}}>
+                    {Math.round(p.probability*100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p style={{fontSize:12,color:"#666",marginTop:8}}>
+              ✅ Classificação aplicada automaticamente. Você pode alterar abaixo se necessário.
+            </p>
+          </div>
+        )}
+
+        {resultadoIA?.erro && (
+          <div style={{marginTop:10,padding:"10px 14px",background:"#FAEEDA",borderRadius:8,
+            border:"1px solid #FAC775",fontSize:13,color:"#854F0B"}}>
+            ⚠️ {resultadoIA.erro} Selecione a classificação manualmente.
+          </div>
+        )}
+
+        {form.foto && (
+          <img src={form.foto} alt="preview" className="foto-preview" />
+        )}
+      </div>
+
+      {/* CLASSIFICAÇÃO */}
       <div className="form-group" style={{marginBottom:18}}>
         <label>Classificação da grama</label>
         <div className="status-btns">
@@ -376,10 +493,11 @@ function Vistoria({ salvar, voltar }) {
             <button key={key}
               className={`status-btn ${form.status===key?"selecionado":""}`}
               style={form.status===key?{background:cfg.bg,borderColor:cfg.cor,color:cfg.texto}:{}}
-              onClick={() => { set("status",key); if(!form.diasCorte) set("diasCorte",cfg.dias); }}>
+              onClick={() => { set("status",key); set("diasCorte",cfg.dias); }}>
               {cfg.label}
               <span style={{display:"block",fontSize:11,opacity:0.7,marginTop:2}}>
-                {key==="critico"?"imediato":key==="alta"?"até 3 dias":key==="media"?"até 10 dias":"até 21 dias"}
+                {key==="critico"?"imediato":key==="alta"?"até 3 dias":
+                 key==="media"?"até 10 dias":"até 21 dias"}
               </span>
             </button>
           ))}
@@ -389,20 +507,18 @@ function Vistoria({ salvar, voltar }) {
       <div className="form-grid">
         <div className="form-group">
           <label>Altura estimada</label>
-          <input placeholder="Ex: 25 a 35 cm" value={form.altura} onChange={e=>set("altura",e.target.value)} />
+          <input placeholder="Ex: 25 a 35 cm" value={form.altura}
+            onChange={e=>set("altura",e.target.value)} />
         </div>
         <div className="form-group">
           <label>Dias para próximo corte</label>
-          <input type="number" placeholder="Ex: 7" value={form.diasCorte} onChange={e=>set("diasCorte",e.target.value)} />
-        </div>
-        <div className="form-group full">
-          <label>Foto da grama</label>
-          <input type="file" accept="image/*" onChange={handleFoto} />
-          {form.foto && <img src={form.foto} alt="preview" className="foto-preview" />}
+          <input type="number" placeholder="Ex: 7" value={form.diasCorte}
+            onChange={e=>set("diasCorte",e.target.value)} />
         </div>
         <div className="form-group full">
           <label>Observações</label>
-          <textarea placeholder="Detalhes extras sobre o local..." value={form.obs} onChange={e=>set("obs",e.target.value)} />
+          <textarea placeholder="Detalhes extras sobre o local..." value={form.obs}
+            onChange={e=>set("obs",e.target.value)} />
         </div>
       </div>
 
@@ -415,26 +531,27 @@ function Vistoria({ salvar, voltar }) {
     </div>
   );
 }
-
-// ── HISTÓRICO ─────────────────────────────────────────────────────────────────
-function Historico({ registros }) {
+function Historico() {     
+  function Historico({ registros }) {
   const [filtro, setFiltro] = useState("");
   const [filtroBairro, setFiltroBairro] = useState("");
-
+ 
   const lista = registros
     .filter(r => !filtro || r.status === filtro)
     .filter(r => !filtroBairro || r.bairro === filtroBairro);
-
+ 
   return (
     <div className="card">
       <div className="card-header" style={{marginBottom:16}}>
         <h3 className="card-title">Todas as vistorias ({lista.length})</h3>
         <div style={{display:"flex",gap:8}}>
-          <select value={filtro} onChange={e=>setFiltro(e.target.value)} style={{padding:"6px 10px",borderRadius:8,border:"1px solid #ddd",fontSize:13}}>
+          <select value={filtro} onChange={e=>setFiltro(e.target.value)}
+            style={{padding:"6px 10px",borderRadius:8,border:"1px solid #ddd",fontSize:13}}>
             <option value="">Todos os status</option>
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={filtroBairro} onChange={e=>setFiltroBairro(e.target.value)} style={{padding:"6px 10px",borderRadius:8,border:"1px solid #ddd",fontSize:13}}>
+          <select value={filtroBairro} onChange={e=>setFiltroBairro(e.target.value)}
+            style={{padding:"6px 10px",borderRadius:8,border:"1px solid #ddd",fontSize:13}}>
             <option value="">Todos os bairros</option>
             {BAIRROS.map(b=><option key={b}>{b}</option>)}
           </select>
@@ -447,7 +564,7 @@ function Historico({ registros }) {
     </div>
   );
 }
-
+}
 // ── POR BAIRRO ────────────────────────────────────────────────────────────────
 function PorBairro({ registros }) {
   const [bairroSel, setBairroSel] = useState("");
