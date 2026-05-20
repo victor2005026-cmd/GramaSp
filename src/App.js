@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./supabase";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
 import {
-  MapContainer, TileLayer, CircleMarker, Polygon, Polyline, Popup, useMapEvents
+  MapContainer, TileLayer, CircleMarker, Polygon, Polyline, Popup, useMapEvents, useMap
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -50,14 +50,13 @@ const STATUS={
   cortada:{label:"Recém cortada",emoji:"✂️",cor:"#1D4ED8",bg:"#DBEAFE",texto:"#1E3A8A",dias:30,cresc:0.2},
 };
 
-// KPI cores de fundo (estilo painel de bordo da referência)
 const KPI_CORES={
-  total:  {fundo:"linear-gradient(135deg,#275214,#1E3A0E)", sombra:"rgba(39,82,20,.35)"},
-  critico:{fundo:"linear-gradient(135deg,#B91C1C,#7F1D1D)", sombra:"rgba(185,28,28,.35)"},
-  alta:   {fundo:"linear-gradient(135deg,#C2410C,#7C2D12)", sombra:"rgba(194,65,12,.35)"},
-  media:  {fundo:"linear-gradient(135deg,#A16207,#713F12)", sombra:"rgba(161,98,7,.35)"},
-  baixa:  {fundo:"linear-gradient(135deg,#15803D,#14532D)", sombra:"rgba(21,128,61,.35)"},
-  cortada:{fundo:"linear-gradient(135deg,#1D4ED8,#1E3A8A)", sombra:"rgba(29,78,216,.35)"},
+  total:  {fundo:"linear-gradient(135deg,#275214,#1E3A0E)",sombra:"rgba(39,82,20,.35)"},
+  critico:{fundo:"linear-gradient(135deg,#B91C1C,#7F1D1D)",sombra:"rgba(185,28,28,.35)"},
+  alta:   {fundo:"linear-gradient(135deg,#C2410C,#7C2D12)",sombra:"rgba(194,65,12,.35)"},
+  media:  {fundo:"linear-gradient(135deg,#A16207,#713F12)",sombra:"rgba(161,98,7,.35)"},
+  baixa:  {fundo:"linear-gradient(135deg,#15803D,#14532D)",sombra:"rgba(21,128,61,.35)"},
+  cortada:{fundo:"linear-gradient(135deg,#1D4ED8,#1E3A8A)",sombra:"rgba(29,78,216,.35)"},
 };
 
 function statusEfetivo(r){
@@ -77,11 +76,11 @@ function calcNotif(registros){
     const diff=Number.isFinite(Number(r.dias_para_corte))?Number(r.dias_para_corte):Math.ceil((corte-hoje)/86400000);
     const diasCad=Number.isFinite(Number(r.dias_desde_vistoria))?Number(r.dias_desde_vistoria):Math.ceil((hoje-new Date(r.criado_em||r.data))/86400000);
     let tipo="ok",titulo="🌿 Tranquila",prio=6;
-    if(status==="critico")            {tipo="critico"; titulo="🔴 Crítico!";       prio=1;}
-    else if(diff<=0&&status==="alta") {tipo="atrasado";titulo="🟠 Atrasado!";      prio=2;}
-    else if(diff<=3&&status==="alta") {tipo="urgente"; titulo="⚠️ Urgente";        prio=3;}
-    else if(diff<=5&&status==="media"){tipo="atencao"; titulo="📋 Atenção";        prio=4;}
-    else if(diasCad<=2)               {tipo="novo";    titulo="✅ Novo registro";  prio=5;}
+    if(status==="critico")            {tipo="critico"; titulo="🔴 Crítico!";      prio=1;}
+    else if(diff<=0&&status==="alta") {tipo="atrasado";titulo="🟠 Atrasado!";     prio=2;}
+    else if(diff<=3&&status==="alta") {tipo="urgente"; titulo="⚠️ Urgente";       prio=3;}
+    else if(diff<=5&&status==="media"){tipo="atencao"; titulo="📋 Atenção";       prio=4;}
+    else if(diasCad<=2)               {tipo="novo";    titulo="✅ Novo registro"; prio=5;}
     return{tipo,titulo,msg:`${r.local} (${r.bairro})`,registro:r,prioridade:prio,diff};
   }).sort((a,b)=>a.prioridade-b.prioridade);
 }
@@ -98,8 +97,106 @@ function Toast({msg,tipo,onClose}){
   );
 }
 
-// Seletor de múltiplos bairros — estilo tags
-function BairrosSelect({value,onChange,placeholder="Selecione os bairros..."}){
+// ── BUSCA DE ENDEREÇO (Nominatim) ─────────────────────────────────────────────
+function BuscaEndereco({value,onChange,onSelect,placeholder="Digite o endereço, praça ou rua..."}){
+  const [sugestoes,setSugestoes]=useState([]);
+  const [buscando,setBuscando]=useState(false);
+  const [aberto,setAberto]=useState(false);
+  const ref=useRef(null);
+  const timerRef=useRef(null);
+
+  useEffect(()=>{
+    const handler=(e)=>{if(ref.current&&!ref.current.contains(e.target)) setAberto(false);};
+    document.addEventListener("mousedown",handler);
+    return()=>document.removeEventListener("mousedown",handler);
+  },[]);
+
+  const buscar=useCallback(async(texto)=>{
+    if(texto.length<2){setSugestoes([]);setAberto(false);return;}
+    setBuscando(true);
+    try{
+      const q=encodeURIComponent(`${texto}, Santos, São Paulo, Brasil`);
+      const url=`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=8&addressdetails=1&countrycodes=br&viewbox=-46.4,-24.1,-46.2,-23.8&bounded=1`;
+      const res=await fetch(url,{headers:{"Accept-Language":"pt-BR,pt"}});
+      const data=await res.json();
+      if(data.length>0){
+        setSugestoes(data);
+        setAberto(true);
+      } else {
+        // segunda tentativa sem bounded
+        const q2=encodeURIComponent(`${texto} Santos SP`);
+        const res2=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q2}&limit=8&addressdetails=1&countrycodes=br`,{headers:{"Accept-Language":"pt-BR,pt"}});
+        const data2=await res2.json();
+        setSugestoes(data2);
+        setAberto(data2.length>0);
+      }
+    }catch(e){setSugestoes([]);}
+    setBuscando(false);
+  },[]);
+
+  const handleChange=(e)=>{
+    const v=e.target.value;
+    onChange(v);
+    clearTimeout(timerRef.current);
+    timerRef.current=setTimeout(()=>buscar(v),300);
+  };
+
+  const handleSelect=(s)=>{
+    onChange(s.display_name.split(",")[0]);
+    setAberto(false);
+    setSugestoes([]);
+    onSelect({
+      lat:parseFloat(s.lat),
+      lng:parseFloat(s.lon),
+      nome:s.display_name.split(",")[0],
+      enderecoCompleto:s.display_name,
+      bairro:s.address?.suburb||s.address?.neighbourhood||s.address?.city_district||"",
+    });
+  };
+
+  const formatarSugestao=(s)=>{
+    const partes=s.display_name.split(",");
+    const principal=partes[0].trim();
+    const secundario=partes.slice(1,3).join(",").trim();
+    return{principal,secundario};
+  };
+
+  return(
+    <div className="busca-endereco-wrap" ref={ref}>
+      <div className="busca-endereco-input-wrap">
+        <span className="busca-endereco-icon">📍</span>
+        <input
+          className="busca-endereco-input"
+          value={value}
+          onChange={handleChange}
+          placeholder={placeholder}
+          onFocus={()=>sugestoes.length>0&&setAberto(true)}
+          autoComplete="off"
+        />
+        {buscando&&<span className="busca-endereco-loading">🔄</span>}
+      </div>
+      {aberto&&sugestoes.length>0&&(
+        <div className="busca-endereco-dropdown">
+          {sugestoes.map((s,i)=>{
+            const{principal,secundario}=formatarSugestao(s);
+            return(
+              <div key={i} className="busca-endereco-option" onClick={()=>handleSelect(s)}>
+                <span className="busca-endereco-option-icon">📍</span>
+                <div>
+                  <p className="busca-endereco-principal">{principal}</p>
+                  <p className="busca-endereco-secundario">{secundario}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── BUSCA DE BAIRRO com digitação ─────────────────────────────────────────────
+function BairroBusca({value,onChange,placeholder="Digite o bairro..."}){
   const [aberto,setAberto]=useState(false);
   const ref=useRef(null);
 
@@ -109,6 +206,54 @@ function BairrosSelect({value,onChange,placeholder="Selecione os bairros..."}){
     return()=>document.removeEventListener("mousedown",handler);
   },[]);
 
+  const filtrados=BAIRROS.filter(b=>b.toLowerCase().includes(value.toLowerCase())).slice(0,6);
+
+  return(
+    <div className="busca-endereco-wrap" ref={ref}>
+      <div className="busca-endereco-input-wrap">
+        <span className="busca-endereco-icon">🗺️</span>
+        <input
+          className="busca-endereco-input"
+          value={value}
+          onChange={e=>{onChange(e.target.value);setAberto(true);}}
+          placeholder={placeholder}
+          onFocus={()=>setAberto(true)}
+          autoComplete="off"
+        />
+      </div>
+      {aberto&&filtrados.length>0&&(
+        <div className="busca-endereco-dropdown">
+          {filtrados.map((b,i)=>(
+            <div key={i} className="busca-endereco-option" onClick={()=>{onChange(b);setAberto(false);}}>
+              <span className="busca-endereco-option-icon">🗺️</span>
+              <div>
+                <p className="busca-endereco-principal">{b}</p>
+                <p className="busca-endereco-secundario">Santos, SP</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── MÚLTIPLOS BAIRROS com digitação ───────────────────────────────────────────
+function BairrosSelect({value,onChange,placeholder="Digite para buscar bairros..."}){
+  const [texto,setTexto]=useState("");
+  const [aberto,setAberto]=useState(false);
+  const ref=useRef(null);
+
+  useEffect(()=>{
+    const handler=(e)=>{if(ref.current&&!ref.current.contains(e.target)) setAberto(false);};
+    document.addEventListener("mousedown",handler);
+    return()=>document.removeEventListener("mousedown",handler);
+  },[]);
+
+  const filtrados=BAIRROS.filter(b=>
+    b.toLowerCase().includes(texto.toLowerCase())&&!value.includes(b)
+  ).slice(0,25);
+
   const toggle=(b)=>{
     if(value.includes(b)) onChange(value.filter(x=>x!==b));
     else onChange([...value,b]);
@@ -116,27 +261,45 @@ function BairrosSelect({value,onChange,placeholder="Selecione os bairros..."}){
 
   return(
     <div className="bairros-select-wrap" ref={ref}>
-      <div className="bairros-tags" onClick={()=>setAberto(!aberto)}>
-        {value.length===0&&<span className="bairros-placeholder">{placeholder}</span>}
+      <div className="bairros-tags" onClick={()=>setAberto(true)}>
         {value.map(b=>(
           <span key={b} className="bairro-tag">
             {b}
             <button onClick={e=>{e.stopPropagation();toggle(b);}}>×</button>
           </span>
         ))}
+        <input
+          className="bairros-tags-input"
+          value={texto}
+          onChange={e=>{setTexto(e.target.value);setAberto(true);}}
+          onFocus={()=>setAberto(true)}
+          placeholder={value.length===0?placeholder:"Adicionar bairro..."}
+        />
       </div>
       {aberto&&(
-        <div className="bairros-dropdown">
-          {BAIRROS.map(b=>(
-            <div key={b} className={`bairro-option ${value.includes(b)?"selecionado":""}`} onClick={()=>toggle(b)}>
-              <div className="check">{value.includes(b)?"✓":""}</div>
-              {b}
+        <div className="busca-endereco-dropdown">
+          {filtrados.map((b,i)=>(
+            <div key={i} className="busca-endereco-option" onClick={()=>{toggle(b);setTexto("");setAberto(false);}}>
+              <span className="busca-endereco-option-icon"></span>
+              <div>
+                <p className="busca-endereco-principal">{b}</p>
+                <p className="busca-endereco-secundario">Santos, SP</p>
+              </div>
             </div>
           ))}
         </div>
       )}
     </div>
   );
+}
+
+// Centraliza mapa quando coordenadas mudam
+function MapaFlyTo({coords}){
+  const map=useMap();
+  useEffect(()=>{
+    if(coords) map.flyTo(coords,17,{animate:true,duration:1});
+  },[coords,map]);
+  return null;
 }
 
 function MapClicker({onMark}){
@@ -159,17 +322,16 @@ function Modal({titulo,children,onClose}){
 }
 
 export default function App(){
-  const [tela,setTela]             =useState("inicio");
-  const [registros,setRegistros]   =useState([]);
-  const [carregando,setCarregando] =useState(true);
-  const [tema,setTema]             =useState("claro");
-  const [menuPerfil,setMenuPerfil] =useState(false);
+  const [tela,setTela]              =useState("inicio");
+  const [registros,setRegistros]    =useState([]);
+  const [carregando,setCarregando]  =useState(true);
+  const [tema,setTema]              =useState("claro");
+  const [menuPerfil,setMenuPerfil]  =useState(false);
   const [notifAberta,setNotifAberta]=useState(false);
   const [filtroGramas,setFiltroGramas]=useState({});
-  const [localFoco,setLocalFoco]   =useState(null);
-  const [toast,setToast]           =useState(null);
- 
-  const [session,setSession]       =useState(null);
+  const [localFoco,setLocalFoco]    =useState(null);
+  const [toast,setToast]            =useState(null);
+  const [session,setSession]        =useState(null);
   const [authLoading,setAuthLoading]=useState(true);
 
   const showToast=(msg,tipo="sucesso")=>setToast({msg,tipo});
@@ -276,7 +438,7 @@ export default function App(){
             {id:"inicio",      icon:"🏠",label:"Início"},
             {id:"mapa",        icon:"🗺️",label:"Mapa"},
             {id:"gramas",      icon:"🌱",label:"Gramas"},
-            {id:"vistoria",    icon:"📷",label:"Nova Vistoria"},
+            {id:"vistoria",    icon:"📷",label:"Registrar Vistoria"},
             {id:"historico",   icon:"📋",label:"Histórico"},
             {id:"notificacoes",icon:"🔔",label:"Notificações",badge:naoLidas},
           ].map(item=>(
@@ -423,7 +585,7 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
     bairrosMap[r.bairro][r.statusReal]=(bairrosMap[r.bairro][r.statusReal]||0)+1;
   });
   const barData=Object.values(bairrosMap)
-    .filter(d=>!filtroBairro||d.bairro===filtroBairro)
+    .filter(d=>!filtroBairro||d.bairro.toLowerCase().includes(filtroBairro.toLowerCase()))
     .sort((a,b)=>(b.critico+b.alta)-(a.critico+a.alta));
 
   const roscaData=Object.entries(
@@ -442,7 +604,7 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
     };
   });
 
-  const listaLocais=regs.filter(r=>!filtroBairro||r.bairro===filtroBairro).slice(0,verMais?999:6);
+  const listaLocais=regs.filter(r=>!filtroBairro||r.bairro.toLowerCase().includes(filtroBairro.toLowerCase())).slice(0,verMais?999:6);
   const isDark=tema==="escuro";
   const cardBg=isDark?"#111A0C":"#fff";
   const txt=isDark?"#ECF5E4":"#0D1A08";
@@ -458,15 +620,14 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
         </div>
       )}
 
-      {/* KPI CARDS — fundo colorido estilo referência */}
       <div className="kpi-grid">
         {[
-          {key:"total",  label:"Total de Locais", num:counts.total,   icon:"🗂️"},
-          {key:"critico",label:"Urgentes",         num:counts.critico, icon:"🔴"},
-          {key:"alta",   label:"Grama Alta",       num:counts.alta,    icon:"🟠"},
-          {key:"media",  label:"Grama Média",      num:counts.media,   icon:"🟡"},
-          {key:"baixa",  label:"Grama Curta",      num:counts.baixa,   icon:"🟢"},
-          {key:"cortada",label:"Recém Cortadas",   num:counts.cortada, icon:"✂️"},
+          {key:"total",  label:"Total de Locais",num:counts.total,   icon:"🗂️"},
+          {key:"critico",label:"Urgentes",        num:counts.critico, icon:"🔴"},
+          {key:"alta",   label:"Grama Alta",      num:counts.alta,    icon:"🟠"},
+          {key:"media",  label:"Grama Média",     num:counts.media,   icon:"🟡"},
+          {key:"baixa",  label:"Grama Curta",     num:counts.baixa,   icon:"🟢"},
+          {key:"cortada",label:"Recém Cortadas",  num:counts.cortada, icon:"✂️"},
         ].map(c=>{
           const k=KPI_CORES[c.key];
           return(
@@ -484,20 +645,11 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
         })}
       </div>
 
-      <div className="dash-filtro">
-        <span>🔍 Filtrar:</span>
-        <select value={filtroBairro} onChange={e=>setFiltroBairro(e.target.value)}>
-          <option value="">Todos os bairros</option>
-          {[...new Set(regs.map(r=>r.bairro))].map(b=><option key={b}>{b}</option>)}
-        </select>
-      </div>
+     
 
       {regs.length>0&&(
         <>
-          {/* ── LINHA 1: Rosca + Área ── */}
           <div className="grid2">
-
-            {/* Rosca com texto central */}
             <div className="chart-card">
               <div className="chart-head">
                 <div>
@@ -516,9 +668,8 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
                     <Tooltip contentStyle={tip}/>
                   </PieChart>
                 </ResponsiveContainer>
-                {/* centro do donut */}
                 <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none",lineHeight:1}}>
-                  <div style={{fontSize:30,fontWeight:900,color:txt,fontFeatureSettings:'"tnum"',letterSpacing:"-.04em"}}>{regs.length}</div>
+                  <div style={{fontSize:30,fontWeight:900,color:txt,letterSpacing:"-.04em"}}>{regs.length}</div>
                   <div style={{fontSize:11,fontWeight:700,color:isDark?"#5E7252":"#7A8F70",marginTop:4,textTransform:"uppercase",letterSpacing:".06em"}}>locais</div>
                 </div>
               </div>
@@ -529,7 +680,6 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
               </div>
             </div>
 
-            {/* Área — evolução 30 dias */}
             <div className="chart-card">
               <div className="chart-head">
                 <div>
@@ -568,7 +718,6 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
             </div>
           </div>
 
-          {/* ── LINHA 2: Barras horizontais por bairro ── */}
           <div className="chart-card">
             <div className="chart-head">
               <div>
@@ -578,18 +727,12 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
               <div className="chart-badge">{barData.length} bairro(s)</div>
             </div>
             <div className="bar-chart-scroll">
-              <ResponsiveContainer width="100%" height={Math.min(500, Math.max(240, barData.length*28+48))}>
-                <BarChart data={barData} layout="vertical" barSize={14}
-                  margin={{top:4,right:24,left:0,bottom:4}}>
+              <ResponsiveContainer width="100%" height={Math.min(500,Math.max(240,barData.length*28+48))}>
+                <BarChart data={barData} layout="vertical" barSize={14} margin={{top:4,right:24,left:0,bottom:4}}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridC} horizontal={false}/>
-                  <XAxis type="number" tick={{fontSize:10,fill:isDark?"#9AB088":"#4A5E40"}}
-                    allowDecimals={false} axisLine={false} tickLine={false}/>
-                  <YAxis type="category" dataKey="bairro" width={148}
-                    tick={{fontSize:11,fill:isDark?"#9AB088":"#4A5E40",fontWeight:600}}
-                    axisLine={false} tickLine={false}/>
-                  <Tooltip contentStyle={tip}
-                    cursor={{fill:isDark?"rgba(255,255,255,.04)":"rgba(13,26,8,.04)"}}
-                    formatter={(v,n)=>[v,n]}/>
+                  <XAxis type="number" tick={{fontSize:10,fill:isDark?"#9AB088":"#4A5E40"}} allowDecimals={false} axisLine={false} tickLine={false}/>
+                  <YAxis type="category" dataKey="bairro" width={148} tick={{fontSize:11,fill:isDark?"#9AB088":"#4A5E40",fontWeight:600}} axisLine={false} tickLine={false}/>
+                  <Tooltip contentStyle={tip} cursor={{fill:isDark?"rgba(255,255,255,.04)":"rgba(13,26,8,.04)"}} formatter={(v,n)=>[v,n]}/>
                   <Bar dataKey="critico" name="Crítico" stackId="a" fill="#B91C1C"/>
                   <Bar dataKey="alta"    name="Alta"    stackId="a" fill="#C2410C"/>
                   <Bar dataKey="media"   name="Média"   stackId="a" fill="#A16207"/>
@@ -655,9 +798,7 @@ function Mapa({registros,irParaLocal}){
           <p style={{fontWeight:700,fontSize:14,marginBottom:4}}>{r.local}</p>
           <p style={{fontSize:12,color:"#666",marginBottom:6}}>📍 {r.bairro}</p>
           <p style={{fontSize:12}}>{cfg.emoji} {cfg.label}</p>
-          <button onClick={()=>irParaLocal(r)} style={{marginTop:8,width:"100%",padding:"6px 10px",background:"#275214",color:"#fff",border:"none",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700}}>
-            Ver detalhes →
-          </button>
+          <button onClick={()=>irParaLocal(r)} style={{marginTop:8,width:"100%",padding:"6px 10px",background:"#275214",color:"#fff",border:"none",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700}}>Ver detalhes →</button>
         </div>
       </Popup>
     );
@@ -739,7 +880,7 @@ function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,a
 
   const lista=registros
     .filter(r=>!filtro||statusEfetivo(r)===filtro)
-    .filter(r=>!filtroB||r.bairro.includes(filtroB));
+    .filter(r=>!filtroB||r.bairro.toLowerCase().includes(filtroB.toLowerCase()));
 
   return(
     <div>
@@ -750,10 +891,11 @@ function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,a
             <option value="">Todos os status</option>
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.emoji} {v.label}</option>)}
           </select>
-          <select value={filtroB} onChange={e=>setFiltroB(e.target.value)} style={{padding:"7px 12px",borderRadius:8,border:"1px solid var(--border-med)",fontSize:13}}>
-            <option value="">Todos os bairros</option>
-            {BAIRROS.map(b=><option key={b}>{b}</option>)}
-          </select>
+          {/* Bairro com digitação */}
+          <div style={{flex:1,minWidth:180,maxWidth:300}}>
+            <BairroBusca value={filtroB} onChange={setFiltroB} placeholder="Buscar bairro..."/>
+          </div>
+          {filtroB&&<button onClick={()=>setFiltroB("")} style={{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text-3)",fontWeight:600}}>✕</button>}
           <span style={{fontSize:12,color:"var(--text-3)",marginLeft:"auto",fontWeight:600}}>{lista.length} local(is)</span>
         </div>
       </div>
@@ -853,7 +995,6 @@ function FormEditar({registro,onSalvar,onCancelar}){
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.emoji} {v.label}</option>)}
           </select>
         </div>
-        
         <div className="form-group"><label>Dias p/ corte</label><input type="number" value={form.diasCorte} onChange={e=>set("diasCorte",e.target.value)}/></div>
       </div>
       <div className="form-group"><label>Observações</label><textarea value={form.obs} onChange={e=>set("obs",e.target.value)}/></div>
@@ -870,7 +1011,7 @@ function Detalhe({registro:r,voltar,registrarCorte}){
   const corte=new Date(r.data);corte.setDate(corte.getDate()+(r.dias_corte||0));
   const diff=Math.ceil((corte-new Date())/86400000);
   const diasDesde=Math.ceil((new Date()-new Date(r.data+"T12:00:00"))/86400000);
-  const cresc=(diasDesde/7*cfg.cresc*10).toFixed(1);
+  const cresc=r.crescimento_estimado_cm!=null?Number(r.crescimento_estimado_cm).toFixed(1):(diasDesde/7*cfg.cresc*10).toFixed(1);
   const pct=Math.min(100,diasDesde/30*100);
   const [registrando,setRegistrando]=useState(false);
   const handleCorte=async()=>{setRegistrando(true);await registrarCorte(r);setRegistrando(false);voltar();};
@@ -920,7 +1061,7 @@ function Detalhe({registro:r,voltar,registrarCorte}){
   );
 }
 
-// ── VISTORIA ─────────────────────────────────────────────────────────────────
+// ── VISTORIA com busca de endereço estilo Google Maps ─────────────────────────
 function Vistoria({salvar,voltar}){
   const [form,setForm]=useState({
     local:"",bairros:[],metragem:"",
@@ -935,8 +1076,23 @@ function Vistoria({salvar,voltar}){
   const [mapaAberto,setMapaAberto]=useState(false);
   const [modoDesenho,setModoDesenho]=useState("ponto");
   const [pontosDesenho,setPontosDesenho]=useState([]);
+  const [coordsMapa,setCoordsMapa]=useState(null);
 
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const handleSelectEndereco=(info)=>{
+    set("latitude",info.lat);
+    set("longitude",info.lng);
+    setCoordsMapa([info.lat,info.lng]);
+    setMapaAberto(true);
+    // preenche bairro automaticamente se encontrou
+    if(info.bairro&&form.bairros.length===0){
+      const bairroEncontrado=BAIRROS.find(b=>b.toLowerCase()===info.bairro.toLowerCase());
+      if(bairroEncontrado) set("bairros",[bairroEncontrado]);
+    }
+    setPontosDesenho([]);
+    set("geometria",null);
+  };
 
   const handleFoto=async(e)=>{
     const file=e.target.files[0];if(!file) return;
@@ -962,7 +1118,7 @@ function Vistoria({salvar,voltar}){
   };
 
   const handleMapClick=(lat,lng)=>{
-    if(modoDesenho==="ponto"){set("latitude",lat);set("longitude",lng);set("geometria",null);setPontosDesenho([]);}
+    if(modoDesenho==="ponto"){set("latitude",lat);set("longitude",lng);setCoordsMapa([lat,lng]);set("geometria",null);setPontosDesenho([]);}
   };
   const handlePolyClick=(ponto)=>{
     const novos=[...pontosDesenho,ponto];
@@ -970,7 +1126,7 @@ function Vistoria({salvar,voltar}){
     set("geometria",{tipo:modoDesenho,pontos:novos});
     set("latitude",novos[0][0]);set("longitude",novos[0][1]);
   };
-  const limparDesenho=()=>{setPontosDesenho([]);set("geometria",null);set("latitude",null);set("longitude",null);};
+  const limparDesenho=()=>{setPontosDesenho([]);set("geometria",null);set("latitude",null);set("longitude",null);setCoordsMapa(null);};
 
   const handleSubmit=async()=>{
     if(!form.local){setErro("Informe o local.");return;}
@@ -994,11 +1150,20 @@ function Vistoria({salvar,voltar}){
 
       <div className="card vistoria-secao">
         <h3 className="secao-titulo">📍 Localização</h3>
+
+        {/* BUSCA ESTILO GOOGLE MAPS */}
+        <div className="form-group" style={{marginBottom:14}}>
+          <label>Endereço / Local *</label>
+          <BuscaEndereco
+            value={form.local}
+            onChange={v=>set("local",v)}
+            onSelect={handleSelectEndereco}
+            placeholder="Digite o endereço ou nome do local"
+          />
+          <span className="form-hint">Sugestões aparecem automaticamente enquanto você digita</span>
+        </div>
+
         <div className="form-grid-3" style={{marginBottom:14}}>
-          <div className="form-group">
-            <label>Endereço / Praça *</label>
-            <input placeholder="Ex: Praça das Bandeiras" value={form.local} onChange={e=>set("local",e.target.value)}/>
-          </div>
           <div className="form-group">
             <label>Metragem (m²)</label>
             <input type="number" placeholder="Ex: 150" value={form.metragem} onChange={e=>set("metragem",e.target.value)}/>
@@ -1007,31 +1172,46 @@ function Vistoria({salvar,voltar}){
             <label>Data da vistoria</label>
             <input type="date" value={form.data} onChange={e=>set("data",e.target.value)}/>
           </div>
+          <div className="form-group">
+            <label>Altura estimada</label>
+            <input placeholder="Ex: 25 cm" value={form.altura} onChange={e=>set("altura",e.target.value)}/>
+          </div>
         </div>
+
         <div className="form-group" style={{marginBottom:14}}>
-          <label>Bairros * — clique para selecionar ({form.bairros.length} selecionado{form.bairros.length!==1?"s":""})</label>
-          <BairrosSelect value={form.bairros} onChange={v=>set("bairros",v)} placeholder="Clique para selecionar os bairros..."/>
+          <label>Bairros * ({form.bairros.length} selecionado{form.bairros.length!==1?"s":""})</label>
+          <BairrosSelect value={form.bairros} onChange={v=>set("bairros",v)} placeholder="Digite para buscar bairros..."/>
           <span className="form-hint">Pode selecionar mais de um caso o local cubra bairros diferentes</span>
         </div>
 
+        {/* MAPA INTERATIVO */}
         <div className="mapa-marcar-wrapper">
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
             <div>
               <p style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:2}}>
-                📌 Marcar no mapa <span style={{fontSize:11,fontWeight:500,color:"var(--text-3)"}}>(opcional)</span>
+                📌 Localização no mapa <span style={{fontSize:11,fontWeight:500,color:"var(--text-3)"}}>(opcional)</span>
               </p>
-              <p style={{fontSize:11,color:"var(--text-3)"}}>Clique no mapa para marcar a localização exata do local</p>
+              <p style={{fontSize:11,color:"var(--text-3)"}}>
+                {temLoc?"Local marcado — ajuste clicando no mapa se necessário":"Ao buscar o endereço acima o mapa marca automaticamente. Ou clique para marcar manualmente."}
+              </p>
             </div>
             <button className="btn-toggle-mapa" onClick={()=>setMapaAberto(!mapaAberto)}>
               {mapaAberto?"Fechar mapa ▲":"Abrir mapa ▼"}
             </button>
           </div>
+
           {temLoc&&(
             <div className="coord-info">
-              <span>{form.geometria?`✅ ${form.geometria.tipo==="poligono"?"Polígono":"Linha"} com ${pontosDesenho.length} pontos`:`✅ Ponto: ${Number(form.latitude).toFixed(5)}, ${Number(form.longitude).toFixed(5)}`}</span>
+              <span>
+                {form.geometria
+                  ?`✅ ${form.geometria.tipo==="poligono"?"Polígono":"Linha"} com ${pontosDesenho.length} pontos`
+                  :`✅ Ponto marcado: ${Number(form.latitude).toFixed(5)}, ${Number(form.longitude).toFixed(5)}`
+                }
+              </span>
               <button className="btn-limpar-coord" onClick={limparDesenho}>Remover</button>
             </div>
           )}
+
           {mapaAberto&&(
             <>
               <div className="draw-toolbar">
@@ -1045,8 +1225,9 @@ function Vistoria({salvar,voltar}){
                 {pontosDesenho.length>0&&<span style={{fontSize:11,color:"var(--text-3)",fontWeight:600,marginLeft:4}}>{pontosDesenho.length} ponto(s)</span>}
               </div>
               <div className="mapa-marcar">
-                <MapContainer center={[-23.9608,-46.3336]} zoom={14} style={{height:"100%",width:"100%"}}>
+                <MapContainer center={coordsMapa||[-23.9608,-46.3336]} zoom={coordsMapa?17:13} style={{height:"100%",width:"100%"}}>
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap'/>
+                  {coordsMapa&&<MapaFlyTo coords={coordsMapa}/>}
                   {modoDesenho==="ponto"&&<MapClicker onMark={handleMapClick}/>}
                   {(modoDesenho==="poligono"||modoDesenho==="linha")&&<PolyDrawer modo={modoDesenho} onAddPonto={handlePolyClick}/>}
                   {modoDesenho==="ponto"&&form.latitude&&form.longitude&&(
@@ -1136,7 +1317,6 @@ function Vistoria({salvar,voltar}){
       <div className="card vistoria-secao">
         <h3 className="secao-titulo">📝 Detalhes adicionais</h3>
         <div className="form-grid">
-         
           <div className="form-group full"><label>Dias até o próximo corte</label><input type="number" placeholder="Ex: 7" value={form.diasCorte} onChange={e=>set("diasCorte",e.target.value)}/></div>
           <div className="form-group full"><label>Observações</label><textarea placeholder="Anote qualquer observação relevante..." value={form.obs} onChange={e=>set("obs",e.target.value)}/></div>
         </div>
@@ -1152,21 +1332,24 @@ function Vistoria({salvar,voltar}){
 
 // ── HISTÓRICO ─────────────────────────────────────────────────────────────────
 function Historico({registros,irParaLocal}){
-  const [filtro,setFiltro]=useState("");const [filtroB,setFiltroB]=useState("");
-  const lista=registros.filter(r=>!filtro||statusEfetivo(r)===filtro).filter(r=>!filtroB||r.bairro.includes(filtroB));
+  const [filtro,setFiltro]=useState("");
+  const [filtroB,setFiltroB]=useState("");
+  const lista=registros
+    .filter(r=>!filtro||statusEfetivo(r)===filtro)
+    .filter(r=>!filtroB||r.bairro.toLowerCase().includes(filtroB.toLowerCase()));
   return(
     <div className="card">
       <div className="card-header" style={{marginBottom:16}}>
         <h3 className="card-title">Todas as vistorias ({lista.length})</h3>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
           <select value={filtro} onChange={e=>setFiltro(e.target.value)} style={{padding:"6px 10px",borderRadius:8,border:"1px solid var(--border-med)",fontSize:13}}>
             <option value="">Todos os status</option>
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.emoji} {v.label}</option>)}
           </select>
-          <select value={filtroB} onChange={e=>setFiltroB(e.target.value)} style={{padding:"6px 10px",borderRadius:8,border:"1px solid var(--border-med)",fontSize:13}}>
-            <option value="">Todos os bairros</option>
-            {BAIRROS.map(b=><option key={b}>{b}</option>)}
-          </select>
+          <div style={{minWidth:180}}>
+            <BairroBusca value={filtroB} onChange={setFiltroB} placeholder="Buscar bairro..."/>
+          </div>
+          {filtroB&&<button onClick={()=>setFiltroB("")} style={{background:"transparent",border:"none",cursor:"pointer",fontSize:13,color:"var(--text-3)",fontWeight:600}}>✕</button>}
         </div>
       </div>
       {lista.length===0?<p className="vazio">Nenhuma vistoria.</p>:<ListaVistorias registros={lista} onClick={r=>irParaLocal(r)}/>}
