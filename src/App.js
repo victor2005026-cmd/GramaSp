@@ -565,7 +565,7 @@ function Login({onLogin}){
 
 // ── INÍCIO ────────────────────────────────────────────────────────────────────
 function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
-  const [filtroBairro,setFiltroBairro]=useState("");
+  const [filtroB,setFiltroB]=useState("");
   const [verMais,setVerMais]=useState(false);
 
   const regs=registros.map(r=>({...r,statusReal:statusEfetivo(r)}));
