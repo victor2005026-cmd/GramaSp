@@ -167,9 +167,8 @@ export default function App(){
   const [notifAberta,setNotifAberta]=useState(false);
   const [filtroGramas,setFiltroGramas]=useState({});
   const [localFoco,setLocalFoco]   =useState(null);
- const cresc=r.crescimento_estimado_cm!=null
-  ? Number(r.crescimento_estimado_cm).toFixed(1)
-  : (diasDesde/7*cfg.cresc*10).toFixed(1);
+  const [toast,setToast]           =useState(null);
+ 
   const [session,setSession]       =useState(null);
   const [authLoading,setAuthLoading]=useState(true);
 
