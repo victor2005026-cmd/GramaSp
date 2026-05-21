@@ -565,7 +565,7 @@ function Login({onLogin}){
 
 // ── INÍCIO ────────────────────────────────────────────────────────────────────
 function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
-const [filtroBairro,] = useState("");
+
   const [verMais,setVerMais]=useState(false);
 
   const regs=registros.map(r=>({...r,statusReal:statusEfetivo(r)}));
@@ -585,7 +585,7 @@ const [filtroBairro,] = useState("");
     bairrosMap[r.bairro][r.statusReal]=(bairrosMap[r.bairro][r.statusReal]||0)+1;
   });
   const barData=Object.values(bairrosMap)
-    .filter(d=>!""||d.bairro.toLowerCase().includes("".toLowerCase()))
+    .filter(d=>d)
     .sort((a,b)=>(b.critico+b.alta)-(a.critico+a.alta));
 
   const roscaData=Object.entries(
@@ -604,7 +604,7 @@ const [filtroBairro,] = useState("");
     };
   });
 
-  const listaLocais=regs.filter(r=>!""||r.bairro.toLowerCase().includes("".toLowerCase())).slice(0,verMais?999:6);
+  const listaLocais=regs.filter(r=>r)
   const isDark=tema==="escuro";
   const cardBg=isDark?"#111A0C":"#fff";
   const txt=isDark?"#ECF5E4":"#0D1A08";
