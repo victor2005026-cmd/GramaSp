@@ -97,7 +97,6 @@ function Toast({msg,tipo,onClose}){
   );
 }
 
-// ── BUSCA DE ENDEREÇO (Nominatim) ─────────────────────────────────────────────
 function BuscaEndereco({value,onChange,onSelect,placeholder="Digite o endereço, praça ou rua..."}){
   const [sugestoes,setSugestoes]=useState([]);
   const [buscando,setBuscando]=useState(false);
@@ -119,35 +118,28 @@ function BuscaEndereco({value,onChange,onSelect,placeholder="Digite o endereço,
       const url=`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=8&addressdetails=1&countrycodes=br&viewbox=-46.4,-24.1,-46.2,-23.8&bounded=1`;
       const res=await fetch(url,{headers:{"Accept-Language":"pt-BR,pt"}});
       const data=await res.json();
-      if(data.length>0){
-        setSugestoes(data);
-        setAberto(true);
-      } else {
-        // segunda tentativa sem bounded
+      if(data.length>0){setSugestoes(data);setAberto(true);}
+      else{
         const q2=encodeURIComponent(`${texto} Santos SP`);
         const res2=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q2}&limit=8&addressdetails=1&countrycodes=br`,{headers:{"Accept-Language":"pt-BR,pt"}});
         const data2=await res2.json();
-        setSugestoes(data2);
-        setAberto(data2.length>0);
+        setSugestoes(data2);setAberto(data2.length>0);
       }
     }catch(e){setSugestoes([]);}
     setBuscando(false);
   },[]);
 
   const handleChange=(e)=>{
-    const v=e.target.value;
-    onChange(v);
+    const v=e.target.value; onChange(v);
     clearTimeout(timerRef.current);
     timerRef.current=setTimeout(()=>buscar(v),300);
   };
 
   const handleSelect=(s)=>{
     onChange(s.display_name.split(",")[0]);
-    setAberto(false);
-    setSugestoes([]);
+    setAberto(false);setSugestoes([]);
     onSelect({
-      lat:parseFloat(s.lat),
-      lng:parseFloat(s.lon),
+      lat:parseFloat(s.lat),lng:parseFloat(s.lon),
       nome:s.display_name.split(",")[0],
       enderecoCompleto:s.display_name,
       bairro:s.address?.suburb||s.address?.neighbourhood||s.address?.city_district||"",
@@ -156,23 +148,15 @@ function BuscaEndereco({value,onChange,onSelect,placeholder="Digite o endereço,
 
   const formatarSugestao=(s)=>{
     const partes=s.display_name.split(",");
-    const principal=partes[0].trim();
-    const secundario=partes.slice(1,3).join(",").trim();
-    return{principal,secundario};
+    return{principal:partes[0].trim(),secundario:partes.slice(1,3).join(",").trim()};
   };
 
   return(
     <div className="busca-endereco-wrap" ref={ref}>
       <div className="busca-endereco-input-wrap">
         <span className="busca-endereco-icon">📍</span>
-        <input
-          className="busca-endereco-input"
-          value={value}
-          onChange={handleChange}
-          placeholder={placeholder}
-          onFocus={()=>sugestoes.length>0&&setAberto(true)}
-          autoComplete="off"
-        />
+        <input className="busca-endereco-input" value={value} onChange={handleChange}
+          placeholder={placeholder} onFocus={()=>sugestoes.length>0&&setAberto(true)} autoComplete="off"/>
         {buscando&&<span className="busca-endereco-loading">🔄</span>}
       </div>
       {aberto&&sugestoes.length>0&&(
@@ -195,37 +179,26 @@ function BuscaEndereco({value,onChange,onSelect,placeholder="Digite o endereço,
   );
 }
 
-// ── BUSCA DE BAIRRO com digitação ─────────────────────────────────────────────
 function BairroBusca({value,onChange,placeholder="Digite o bairro..."}){
   const [aberto,setAberto]=useState(false);
   const ref=useRef(null);
-
   useEffect(()=>{
     const handler=(e)=>{if(ref.current&&!ref.current.contains(e.target)) setAberto(false);};
     document.addEventListener("mousedown",handler);
     return()=>document.removeEventListener("mousedown",handler);
   },[]);
-
   const filtrados=BAIRROS.filter(b=>b.toLowerCase().includes(value.toLowerCase())).slice(0,6);
-
   return(
     <div className="busca-endereco-wrap" ref={ref}>
       <div className="busca-endereco-input-wrap">
-        <span className="busca-endereco-icon">🗺️</span>
-        <input
-          className="busca-endereco-input"
-          value={value}
+        <input className="busca-endereco-input" value={value}
           onChange={e=>{onChange(e.target.value);setAberto(true);}}
-          placeholder={placeholder}
-          onFocus={()=>setAberto(true)}
-          autoComplete="off"
-        />
+          placeholder={placeholder} onFocus={()=>setAberto(true)} autoComplete="off"/>
       </div>
       {aberto&&filtrados.length>0&&(
         <div className="busca-endereco-dropdown">
           {filtrados.map((b,i)=>(
             <div key={i} className="busca-endereco-option" onClick={()=>{onChange(b);setAberto(false);}}>
-              <span className="busca-endereco-option-icon">🗺️</span>
               <div>
                 <p className="busca-endereco-principal">{b}</p>
                 <p className="busca-endereco-secundario">Santos, SP</p>
@@ -238,27 +211,20 @@ function BairroBusca({value,onChange,placeholder="Digite o bairro..."}){
   );
 }
 
-// ── MÚLTIPLOS BAIRROS com digitação ───────────────────────────────────────────
 function BairrosSelect({value,onChange,placeholder="Digite para buscar bairros..."}){
   const [texto,setTexto]=useState("");
   const [aberto,setAberto]=useState(false);
   const ref=useRef(null);
-
   useEffect(()=>{
     const handler=(e)=>{if(ref.current&&!ref.current.contains(e.target)) setAberto(false);};
     document.addEventListener("mousedown",handler);
     return()=>document.removeEventListener("mousedown",handler);
   },[]);
-
-  const filtrados=BAIRROS.filter(b=>
-    b.toLowerCase().includes(texto.toLowerCase())&&!value.includes(b)
-  ).slice(0,25);
-
+  const filtrados=BAIRROS.filter(b=>b.toLowerCase().includes(texto.toLowerCase())&&!value.includes(b)).slice(0,25);
   const toggle=(b)=>{
     if(value.includes(b)) onChange(value.filter(x=>x!==b));
     else onChange([...value,b]);
   };
-
   return(
     <div className="bairros-select-wrap" ref={ref}>
       <div className="bairros-tags" onClick={()=>setAberto(true)}>
@@ -268,19 +234,15 @@ function BairrosSelect({value,onChange,placeholder="Digite para buscar bairros..
             <button onClick={e=>{e.stopPropagation();toggle(b);}}>×</button>
           </span>
         ))}
-        <input
-          className="bairros-tags-input"
-          value={texto}
+        <input className="bairros-tags-input" value={texto}
           onChange={e=>{setTexto(e.target.value);setAberto(true);}}
           onFocus={()=>setAberto(true)}
-          placeholder={value.length===0?placeholder:"Adicionar bairro..."}
-        />
+          placeholder={value.length===0?placeholder:"Adicionar bairro..."}/>
       </div>
       {aberto&&(
         <div className="busca-endereco-dropdown">
           {filtrados.map((b,i)=>(
             <div key={i} className="busca-endereco-option" onClick={()=>{toggle(b);setTexto("");setAberto(false);}}>
-              <span className="busca-endereco-option-icon"></span>
               <div>
                 <p className="busca-endereco-principal">{b}</p>
                 <p className="busca-endereco-secundario">Santos, SP</p>
@@ -293,15 +255,11 @@ function BairrosSelect({value,onChange,placeholder="Digite para buscar bairros..
   );
 }
 
-// Centraliza mapa quando coordenadas mudam
 function MapaFlyTo({coords}){
   const map=useMap();
-  useEffect(()=>{
-    if(coords) map.flyTo(coords,17,{animate:true,duration:1});
-  },[coords,map]);
+  useEffect(()=>{if(coords) map.flyTo(coords,17,{animate:true,duration:1});},[coords,map]);
   return null;
 }
-
 function MapClicker({onMark}){
   useMapEvents({click(e){onMark(e.latlng.lat,e.latlng.lng);}});
   return null;
@@ -353,8 +311,7 @@ export default function App(){
   useEffect(()=>{document.body.className=tema==="escuro"?"tema-escuro":"";},[tema]);
 
   const salvar=async(form)=>{
-    const bairroFinal=Array.isArray(form.bairros)&&form.bairros.length>0
-      ?form.bairros.join(" / "):form.bairro||"";
+    const bairroFinal=Array.isArray(form.bairros)&&form.bairros.length>0?form.bairros.join(" / "):form.bairro||"";
     const{error}=await supabase.from("vistorias").insert([{
       local:form.local,bairro:bairroFinal,
       metragem:form.metragem?Number(form.metragem):null,
@@ -370,8 +327,7 @@ export default function App(){
   };
 
   const atualizar=async(id,form)=>{
-    const bairroFinal=Array.isArray(form.bairros)&&form.bairros.length>0
-      ?form.bairros.join(" / "):form.bairro||"";
+    const bairroFinal=Array.isArray(form.bairros)&&form.bairros.length>0?form.bairros.join(" / "):form.bairro||"";
     const{error}=await supabase.from("vistorias").update({
       local:form.local,bairro:bairroFinal,
       metragem:form.metragem?Number(form.metragem):null,
@@ -436,9 +392,9 @@ export default function App(){
         <nav>
           {[
             {id:"inicio",      icon:"🏠",label:"Início"},
-            {id:"mapa",        icon:"🗺️",label:"Mapa"},
             {id:"gramas",      icon:"🌱",label:"Gramas"},
             {id:"vistoria",    icon:"📷",label:"Registrar Vistoria"},
+            {id:"mapa",        icon:"🗺️",label:"Mapa"},
             {id:"historico",   icon:"📋",label:"Histórico"},
             {id:"notificacoes",icon:"🔔",label:"Notificações",badge:naoLidas},
           ].map(item=>(
@@ -462,7 +418,7 @@ export default function App(){
               <button className="sb-perfil-item perigo" onClick={sair}>🚪 Sair</button>
             </div>
           )}
-          <button className="sb-perfil-btn" onClick={()=>{setMenuPerfil(!menuPerfil);setNotifAberta(false);}}>
+          <button className="sb-perfil-btn" onClick={()=>{setMenuPerfil(p=>!p);setNotifAberta(false);}}>
             <div className="sb-perfil-avatar">V</div>
             <div className="sb-perfil-info">
               <span className="sb-perfil-nome">{session?.user?.email?.split("@")[0]||"Victor"}</span>
@@ -478,9 +434,9 @@ export default function App(){
           <div className="topbar-left">
             <h1 className="topbar-title">
               {tela==="inicio"&&"Situação Geral"}
-              {tela==="mapa"&&"Mapa de Santos"}
               {tela==="gramas"&&"Gramas"}
-              {tela==="vistoria"&&"Nova Vistoria"}
+              {tela==="mapa"&&"Mapa de Santos"}
+              {tela==="vistoria"&&"Registrar Vistoria"}
               {tela==="historico"&&"Histórico"}
               {tela==="notificacoes"&&"Notificações"}
               {tela==="configuracoes"&&"Configurações"}
@@ -489,12 +445,15 @@ export default function App(){
           </div>
           <div className="topbar-right">
             {carregando&&<span className="sync-badge">🔄 Sincronizando</span>}
-            <button className="notif-sino" onClick={()=>{setNotifAberta(!notifAberta);setMenuPerfil(false);}}>
+            <button className="notif-sino" onClick={()=>{setNotifAberta(a=>!a);setMenuPerfil(false);}}>
               🔔{naoLidas>0&&<span className="notif-badge">{naoLidas}</span>}
             </button>
             {notifAberta&&(
               <div className="notif-dropdown">
-                <div className="notif-dropdown-header"><strong>Notificações</strong><span style={{fontSize:12,color:"var(--text-3)",fontWeight:500}}>{notificacoes.length}</span></div>
+                <div className="notif-dropdown-header">
+                  <strong>Notificações</strong>
+                  <span style={{fontSize:12,color:"var(--text-3)",fontWeight:500}}>{notificacoes.length}</span>
+                </div>
                 {notificacoes.slice(0,5).map((n,i)=>(
                   <div key={i} className={`notif-item notif-${n.tipo} clicavel`}
                     onClick={()=>{irParaLocal(n.registro);setNotifAberta(false);}}>
@@ -511,9 +470,9 @@ export default function App(){
 
         <div className="content">
           {tela==="inicio"       &&<Inicio registros={registros} irGramas={irGramas} notificacoes={notificacoes} tema={tema} irParaLocal={irParaLocal}/>}
-          {tela==="mapa"         &&<Mapa registros={registros} irParaLocal={irParaLocal}/>}
           {tela==="gramas"       &&<Gramas registros={registros} filtroInicial={filtroGramas} localFoco={localFoco} setLocalFoco={setLocalFoco} registrarCorte={registrarCorte} atualizar={atualizar} deletar={deletar} showToast={showToast}/>}
           {tela==="vistoria"     &&<Vistoria salvar={salvar} voltar={()=>setTela("inicio")}/>}
+          {tela==="mapa"         &&<Mapa registros={registros} irParaLocal={irParaLocal}/>}
           {tela==="historico"    &&<Historico registros={registros} irParaLocal={irParaLocal}/>}
           {tela==="notificacoes" &&<Notificacoes notificacoes={notificacoes} irParaLocal={irParaLocal}/>}
           {tela==="configuracoes"&&<Configuracoes tema={tema} setTema={setTema} sair={sair}/>}
@@ -565,9 +524,7 @@ function Login({onLogin}){
 
 // ── INÍCIO ────────────────────────────────────────────────────────────────────
 function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
-
   const [verMais,setVerMais]=useState(false);
-
   const regs=registros.map(r=>({...r,statusReal:statusEfetivo(r)}));
   const counts={
     total:regs.length,
@@ -578,20 +535,15 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
     cortada:regs.filter(r=>r.statusReal==="cortada").length,
   };
   const urgentes=notificacoes.filter(n=>n.tipo==="critico");
-
   const bairrosMap={};
   regs.forEach(r=>{
     if(!bairrosMap[r.bairro]) bairrosMap[r.bairro]={bairro:r.bairro,critico:0,alta:0,media:0,baixa:0,cortada:0};
     bairrosMap[r.bairro][r.statusReal]=(bairrosMap[r.bairro][r.statusReal]||0)+1;
   });
-  const barData=Object.values(bairrosMap)
-    .filter(d=>d)
-    .sort((a,b)=>(b.critico+b.alta)-(a.critico+a.alta));
-
+  const barData=Object.values(bairrosMap).sort((a,b)=>(b.critico+b.alta)-(a.critico+a.alta));
   const roscaData=Object.entries(
     regs.reduce((acc,r)=>{acc[r.statusReal]=(acc[r.statusReal]||0)+1;return acc;},{})
   ).map(([k,v])=>({name:STATUS[k]?.label||k,value:v,cor:STATUS[k]?.cor||"#999"}));
-
   const hoje=new Date();
   const areaData=Array.from({length:30},(_,i)=>{
     const d=new Date(hoje); d.setDate(d.getDate()-(29-i));
@@ -603,8 +555,7 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
       cortes:dRegs.filter(r=>r.status==="cortada").length,
     };
   });
-
-  const listaLocais=regs.filter(r=>r)
+  const listaLocais=regs.slice(0,verMais?999:6);
   const isDark=tema==="escuro";
   const cardBg=isDark?"#111A0C":"#fff";
   const txt=isDark?"#ECF5E4":"#0D1A08";
@@ -619,7 +570,6 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
           {urgentes.length>2&&` e mais ${urgentes.length-2}`}
         </div>
       )}
-
       <div className="kpi-grid">
         {[
           {key:"total",  label:"Total de Locais",num:counts.total,   icon:"🗂️"},
@@ -644,25 +594,18 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
           );
         })}
       </div>
-
-     
-
       {regs.length>0&&(
         <>
           <div className="grid2">
             <div className="chart-card">
               <div className="chart-head">
-                <div>
-                  <div className="chart-title">Distribuição geral</div>
-                  <div className="chart-sub">Proporção por status atual</div>
-                </div>
+                <div><div className="chart-title">Distribuição geral</div><div className="chart-sub">Proporção por status atual</div></div>
                 <div className="chart-badge">{regs.length} total</div>
               </div>
               <div style={{position:"relative"}}>
                 <ResponsiveContainer width="100%" height={270}>
                   <PieChart>
-                    <Pie data={roscaData} cx="50%" cy="50%" innerRadius={72} outerRadius={112}
-                      dataKey="value" nameKey="name" paddingAngle={3} labelLine={false}>
+                    <Pie data={roscaData} cx="50%" cy="50%" innerRadius={72} outerRadius={112} dataKey="value" nameKey="name" paddingAngle={3} labelLine={false}>
                       {roscaData.map((e,i)=><Cell key={i} fill={e.cor} stroke={cardBg} strokeWidth={3}/>)}
                     </Pie>
                     <Tooltip contentStyle={tip}/>
@@ -679,27 +622,19 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
                 ))}
               </div>
             </div>
-
             <div className="chart-card">
               <div className="chart-head">
-                <div>
-                  <div className="chart-title">Evolução — 30 dias</div>
-                  <div className="chart-sub">Vistorias realizadas e cortes registrados</div>
-                </div>
-                <div className="chart-badge" style={{background:isDark?"rgba(21,128,61,.2)":"#DCFCE7",color:"#15803D",border:"1px solid #86EFAC"}}>
-                  {areaData.reduce((a,b)=>a+b.vistorias,0)} vistorias
-                </div>
+                <div><div className="chart-title">Evolução — 30 dias</div><div className="chart-sub">Vistorias realizadas e cortes registrados</div></div>
+                <div className="chart-badge" style={{background:isDark?"rgba(21,128,61,.2)":"#DCFCE7",color:"#15803D",border:"1px solid #86EFAC"}}>{areaData.reduce((a,b)=>a+b.vistorias,0)} vistorias</div>
               </div>
               <ResponsiveContainer width="100%" height={270}>
                 <AreaChart data={areaData} margin={{top:8,right:10,left:-15,bottom:0}}>
                   <defs>
                     <linearGradient id="gV" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#15803D" stopOpacity={.5}/>
-                      <stop offset="95%" stopColor="#15803D" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#15803D" stopOpacity={.5}/><stop offset="95%" stopColor="#15803D" stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="gC" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#1D4ED8" stopOpacity={.45}/>
-                      <stop offset="95%" stopColor="#1D4ED8" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#1D4ED8" stopOpacity={.45}/><stop offset="95%" stopColor="#1D4ED8" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridC} vertical={false}/>
@@ -707,7 +642,7 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
                   <YAxis tick={{fontSize:11,fill:isDark?"#9AB088":"#4A5E40"}} allowDecimals={false} axisLine={false} tickLine={false} width={28}/>
                   <Tooltip contentStyle={tip}/>
                   <Area type="monotone" dataKey="vistorias" name="Vistorias" stroke="#15803D" strokeWidth={2.5} fill="url(#gV)" dot={false} activeDot={{r:5,fill:"#15803D",strokeWidth:0}}/>
-                  <Area type="monotone" dataKey="cortes"    name="Cortes"    stroke="#1D4ED8" strokeWidth={2}   fill="url(#gC)" dot={false} activeDot={{r:5,fill:"#1D4ED8",strokeWidth:0}}/>
+                  <Area type="monotone" dataKey="cortes" name="Cortes" stroke="#1D4ED8" strokeWidth={2} fill="url(#gC)" dot={false} activeDot={{r:5,fill:"#1D4ED8",strokeWidth:0}}/>
                 </AreaChart>
               </ResponsiveContainer>
               <div className="chart-leg">
@@ -717,13 +652,9 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
               </div>
             </div>
           </div>
-
           <div className="chart-card">
             <div className="chart-head">
-              <div>
-                <div className="chart-title">Situação por bairro</div>
-                <div className="chart-sub">Ordenado por criticidade — maior urgência no topo</div>
-              </div>
+              <div><div className="chart-title">Situação por bairro</div><div className="chart-sub">Ordenado por criticidade — maior urgência no topo</div></div>
               <div className="chart-badge">{barData.length} bairro(s)</div>
             </div>
             <div className="bar-chart-scroll">
@@ -734,9 +665,9 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
                   <YAxis type="category" dataKey="bairro" width={148} tick={{fontSize:11,fill:isDark?"#9AB088":"#4A5E40",fontWeight:600}} axisLine={false} tickLine={false}/>
                   <Tooltip contentStyle={tip} cursor={{fill:isDark?"rgba(255,255,255,.04)":"rgba(13,26,8,.04)"}} formatter={(v,n)=>[v,n]}/>
                   <Bar dataKey="critico" name="Crítico" stackId="a" fill="#B91C1C"/>
-                  <Bar dataKey="alta"    name="Alta"    stackId="a" fill="#C2410C"/>
-                  <Bar dataKey="media"   name="Média"   stackId="a" fill="#A16207"/>
-                  <Bar dataKey="baixa"   name="Curta"   stackId="a" fill="#15803D"/>
+                  <Bar dataKey="alta" name="Alta" stackId="a" fill="#C2410C"/>
+                  <Bar dataKey="media" name="Média" stackId="a" fill="#A16207"/>
+                  <Bar dataKey="baixa" name="Curta" stackId="a" fill="#15803D"/>
                   <Bar dataKey="cortada" name="Cortada" stackId="a" fill="#1D4ED8" radius={[0,6,6,0]}/>
                 </BarChart>
               </ResponsiveContainer>
@@ -749,7 +680,6 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
           </div>
         </>
       )}
-
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">Locais cadastrados</h3>
@@ -891,7 +821,6 @@ function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,a
             <option value="">Todos os status</option>
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.emoji} {v.label}</option>)}
           </select>
-          {/* Bairro com digitação */}
           <div style={{flex:1,minWidth:180,maxWidth:300}}>
             <BairroBusca value={filtroB} onChange={setFiltroB} placeholder="Buscar bairro..."/>
           </div>
@@ -922,6 +851,7 @@ function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,a
                   </p>
                 </div>
                 <div className="grama-acoes">
+                  <button className="btn-editar" onClick={()=>setSel(r)}>👁️ Ver</button>
                   <button className="btn-editar" onClick={()=>setEditando(r)}>✏️ Editar</button>
                   <button className="btn-deletar" onClick={()=>setExcluindo(r)}>🗑️</button>
                 </div>
@@ -1006,6 +936,7 @@ function FormEditar({registro,onSalvar,onCancelar}){
   );
 }
 
+// ── DETALHE com mapa ──────────────────────────────────────────────────────────
 function Detalhe({registro:r,voltar,registrarCorte}){
   const status=statusEfetivo(r);const cfg=STATUS[status]||STATUS.baixa;
   const corte=new Date(r.data);corte.setDate(corte.getDate()+(r.dias_corte||0));
@@ -1014,7 +945,10 @@ function Detalhe({registro:r,voltar,registrarCorte}){
   const cresc=r.crescimento_estimado_cm!=null?Number(r.crescimento_estimado_cm).toFixed(1):(diasDesde/7*cfg.cresc*10).toFixed(1);
   const pct=Math.min(100,diasDesde/30*100);
   const [registrando,setRegistrando]=useState(false);
+  const [verMapa,setVerMapa]=useState(false);
   const handleCorte=async()=>{setRegistrando(true);await registrarCorte(r);setRegistrando(false);voltar();};
+  const temLoc=r.latitude&&r.longitude;
+
   return(
     <div>
       <button className="btn-voltar-detalhe" onClick={voltar}>← Voltar</button>
@@ -1026,11 +960,13 @@ function Detalhe({registro:r,voltar,registrarCorte}){
           </div>
           <span className="badge" style={{background:cfg.bg,color:cfg.texto,fontSize:14,padding:"8px 18px"}}>{cfg.emoji} {cfg.label}</span>
         </div>
+
         {r.foto&&(
           <div style={{background:"var(--bg-soft)",borderRadius:12,border:"1px solid var(--border)",marginBottom:16,overflow:"hidden"}}>
             <img src={r.foto} alt={r.local} style={{width:"100%",maxHeight:320,objectFit:"contain",display:"block",padding:8}}/>
           </div>
         )}
+
         <div className="detalhe-grid">
           <div className="detalhe-item"><span className="detalhe-label">📅 Data da vistoria</span><span className="detalhe-val">{new Date(r.data+"T12:00:00").toLocaleDateString("pt-BR")}</span></div>
           <div className="detalhe-item"><span className="detalhe-label">⏱️ Dias desde vistoria</span><span className="detalhe-val">{diasDesde} dias</span></div>
@@ -1042,6 +978,7 @@ function Detalhe({registro:r,voltar,registrarCorte}){
           </div>
           {r.obs&&<div className="detalhe-item full"><span className="detalhe-label">📝 Observações</span><span className="detalhe-val">{r.obs}</span></div>}
         </div>
+
         <div className="crescimento-box">
           <h4>🌱 Estimativa de crescimento</h4>
           <p>Em <strong>{diasDesde} dias</strong>, a grama cresceu aproximadamente <strong>{cresc}cm</strong>.</p>
@@ -1054,6 +991,33 @@ function Detalhe({registro:r,voltar,registrarCorte}){
             </div>
           </div>
         </div>
+
+        {/* MAPA NO DETALHE */}
+        {temLoc&&(
+          <div style={{marginTop:18}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <p style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>📍 Localização no mapa</p>
+              <button className="btn-toggle-mapa" onClick={()=>setVerMapa(!verMapa)}>
+                {verMapa?"Fechar mapa ▲":"Ver no mapa ▼"}
+              </button>
+            </div>
+            {verMapa&&(
+              <div style={{height:300,borderRadius:12,overflow:"hidden",border:"1px solid var(--border)"}}>
+                <MapContainer center={[r.latitude,r.longitude]} zoom={17} style={{height:"100%",width:"100%"}}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap'/>
+                  <CircleMarker center={[r.latitude,r.longitude]} radius={14}
+                    pathOptions={{color:cfg.cor,fillColor:cfg.cor,fillOpacity:.85,weight:3}}>
+                    <Popup>
+                      <p style={{fontWeight:700,fontSize:13}}>{r.local}</p>
+                      <p style={{fontSize:12,color:"#666"}}>{cfg.emoji} {cfg.label}</p>
+                    </Popup>
+                  </CircleMarker>
+                </MapContainer>
+              </div>
+            )}
+          </div>
+        )}
+
         {status!=="cortada"&&<button className="btn-renovar" onClick={handleCorte} disabled={registrando}>{registrando?"Registrando...":"✂️ Registrar corte"}</button>}
         {status==="cortada"&&<div className="info-cortada">✅ Área cortada recentemente. Em breve passará para "Grama curta".</div>}
       </div>
@@ -1061,7 +1025,7 @@ function Detalhe({registro:r,voltar,registrarCorte}){
   );
 }
 
-// ── VISTORIA com busca de endereço estilo Google Maps ─────────────────────────
+// ── VISTORIA ─────────────────────────────────────────────────────────────────
 function Vistoria({salvar,voltar}){
   const [form,setForm]=useState({
     local:"",bairros:[],metragem:"",
@@ -1081,17 +1045,13 @@ function Vistoria({salvar,voltar}){
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
 
   const handleSelectEndereco=(info)=>{
-    set("latitude",info.lat);
-    set("longitude",info.lng);
-    setCoordsMapa([info.lat,info.lng]);
-    setMapaAberto(true);
-    // preenche bairro automaticamente se encontrou
+    set("latitude",info.lat);set("longitude",info.lng);
+    setCoordsMapa([info.lat,info.lng]);setMapaAberto(true);
     if(info.bairro&&form.bairros.length===0){
-      const bairroEncontrado=BAIRROS.find(b=>b.toLowerCase()===info.bairro.toLowerCase());
-      if(bairroEncontrado) set("bairros",[bairroEncontrado]);
+      const b=BAIRROS.find(b=>b.toLowerCase()===info.bairro.toLowerCase());
+      if(b) set("bairros",[b]);
     }
-    setPontosDesenho([]);
-    set("geometria",null);
+    setPontosDesenho([]);set("geometria",null);
   };
 
   const handleFoto=async(e)=>{
@@ -1150,75 +1110,43 @@ function Vistoria({salvar,voltar}){
 
       <div className="card vistoria-secao">
         <h3 className="secao-titulo">📍 Localização</h3>
-
-        {/* BUSCA ESTILO GOOGLE MAPS */}
         <div className="form-group" style={{marginBottom:14}}>
           <label>Endereço / Local *</label>
-          <BuscaEndereco
-            value={form.local}
-            onChange={v=>set("local",v)}
-            onSelect={handleSelectEndereco}
-            placeholder="Digite o endereço ou nome do local"
-          />
+          <BuscaEndereco value={form.local} onChange={v=>set("local",v)} onSelect={handleSelectEndereco} placeholder="Digite o endereço ou nome do local"/>
           <span className="form-hint">Sugestões aparecem automaticamente enquanto você digita</span>
         </div>
-
         <div className="form-grid-3" style={{marginBottom:14}}>
-          <div className="form-group">
-            <label>Metragem (m²)</label>
-            <input type="number" placeholder="Ex: 150" value={form.metragem} onChange={e=>set("metragem",e.target.value)}/>
-          </div>
-          <div className="form-group">
-            <label>Data da vistoria</label>
-            <input type="date" value={form.data} onChange={e=>set("data",e.target.value)}/>
-          </div>
-          <div className="form-group">
-            <label>Altura estimada</label>
-            <input placeholder="Ex: 25 cm" value={form.altura} onChange={e=>set("altura",e.target.value)}/>
-          </div>
+          <div className="form-group"><label>Metragem (m²)</label><input type="number" placeholder="Ex: 150" value={form.metragem} onChange={e=>set("metragem",e.target.value)}/></div>
+          <div className="form-group"><label>Data da vistoria</label><input type="date" value={form.data} onChange={e=>set("data",e.target.value)}/></div>
+          <div className="form-group"><label>Altura estimada</label><input placeholder="Ex: 25 cm" value={form.altura} onChange={e=>set("altura",e.target.value)}/></div>
         </div>
-
         <div className="form-group" style={{marginBottom:14}}>
           <label>Bairros * ({form.bairros.length} selecionado{form.bairros.length!==1?"s":""})</label>
           <BairrosSelect value={form.bairros} onChange={v=>set("bairros",v)} placeholder="Digite para buscar bairros..."/>
           <span className="form-hint">Pode selecionar mais de um caso o local cubra bairros diferentes</span>
         </div>
-
-        {/* MAPA INTERATIVO */}
         <div className="mapa-marcar-wrapper">
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
             <div>
-              <p style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:2}}>
-                📌 Localização no mapa <span style={{fontSize:11,fontWeight:500,color:"var(--text-3)"}}>(opcional)</span>
-              </p>
-              <p style={{fontSize:11,color:"var(--text-3)"}}>
-                {temLoc?"Local marcado — ajuste clicando no mapa se necessário":"Ao buscar o endereço acima o mapa marca automaticamente. Ou clique para marcar manualmente."}
-              </p>
+              <p style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:2}}>Localização no mapa <span style={{fontSize:11,fontWeight:500,color:"var(--text-3)"}}>(opcional)</span></p>
+              <p style={{fontSize:11,color:"var(--text-3)"}}>{temLoc?"Local marcado — ajuste clicando no mapa se necessário":"Ao buscar o endereço o mapa marca automaticamente."}</p>
             </div>
             <button className="btn-toggle-mapa" onClick={()=>setMapaAberto(!mapaAberto)}>
               {mapaAberto?"Fechar mapa ▲":"Abrir mapa ▼"}
             </button>
           </div>
-
           {temLoc&&(
             <div className="coord-info">
-              <span>
-                {form.geometria
-                  ?`✅ ${form.geometria.tipo==="poligono"?"Polígono":"Linha"} com ${pontosDesenho.length} pontos`
-                  :`✅ Ponto marcado: ${Number(form.latitude).toFixed(5)}, ${Number(form.longitude).toFixed(5)}`
-                }
-              </span>
+              <span>{form.geometria?`✅ ${form.geometria.tipo==="poligono"?"Polígono":"Linha"} com ${pontosDesenho.length} pontos`:`✅ Ponto marcado: ${Number(form.latitude).toFixed(5)}, ${Number(form.longitude).toFixed(5)}`}</span>
               <button className="btn-limpar-coord" onClick={limparDesenho}>Remover</button>
             </div>
           )}
-
           {mapaAberto&&(
             <>
               <div className="draw-toolbar">
                 <span style={{fontSize:10,fontWeight:800,color:"var(--text-3)",textTransform:"uppercase",letterSpacing:".06em"}}>Modo:</span>
                 {[{id:"ponto",icon:"📍",label:"Ponto"},{id:"poligono",icon:"🔷",label:"Polígono"},{id:"linha",icon:"📏",label:"Linha"}].map(m=>(
-                  <button key={m.id} className={`draw-btn ${modoDesenho===m.id?"ativo":""}`}
-                    onClick={()=>{setModoDesenho(m.id);limparDesenho();}}>
+                  <button key={m.id} className={`draw-btn ${modoDesenho===m.id?"ativo":""}`} onClick={()=>{setModoDesenho(m.id);limparDesenho();}}>
                     {m.icon} {m.label}
                   </button>
                 ))}
@@ -1231,8 +1159,7 @@ function Vistoria({salvar,voltar}){
                   {modoDesenho==="ponto"&&<MapClicker onMark={handleMapClick}/>}
                   {(modoDesenho==="poligono"||modoDesenho==="linha")&&<PolyDrawer modo={modoDesenho} onAddPonto={handlePolyClick}/>}
                   {modoDesenho==="ponto"&&form.latitude&&form.longitude&&(
-                    <CircleMarker center={[form.latitude,form.longitude]} radius={12}
-                      pathOptions={{color:"#275214",fillColor:"#15803D",fillOpacity:.85,weight:3}}/>
+                    <CircleMarker center={[form.latitude,form.longitude]} radius={12} pathOptions={{color:"#275214",fillColor:"#15803D",fillOpacity:.85,weight:3}}/>
                   )}
                   {(modoDesenho==="poligono"||modoDesenho==="linha")&&pontosDesenho.length>0&&(
                     <>
@@ -1246,7 +1173,7 @@ function Vistoria({salvar,voltar}){
               <p className="mapa-instrucao">
                 {modoDesenho==="ponto"&&"Clique no mapa para marcar o local exato"}
                 {modoDesenho==="poligono"&&"Clique para adicionar vértices do polígono"}
-                {modoDesenho==="linha"&&"Clique para traçar uma linha (calçada, beira de avenida)"}
+                {modoDesenho==="linha"&&"Clique para traçar uma linha"}
               </p>
             </>
           )}
@@ -1357,9 +1284,22 @@ function Historico({registros,irParaLocal}){
   );
 }
 
-// ── NOTIFICAÇÕES ──────────────────────────────────────────────────────────────
+// ── NOTIFICAÇÕES com limpar ───────────────────────────────────────────────────
 function Notificacoes({notificacoes,irParaLocal}){
-  if(!notificacoes.length) return <div className="card"><p className="vazio">🎉 Tudo em dia!</p></div>;
+  const [lidas,setLidas]=useState([]);
+
+  const visiveis=notificacoes.filter((_,i)=>!lidas.includes(i));
+
+  if(visiveis.length===0) return(
+    <div className="card">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <h3 className="card-title" style={{marginBottom:0}}>Notificações</h3>
+        {lidas.length>0&&<button onClick={()=>setLidas([])} style={{fontSize:12,color:"var(--green-7)",background:"transparent",border:"none",cursor:"pointer",fontWeight:600}}>Restaurar todas</button>}
+      </div>
+      <p className="vazio">🎉 Tudo em dia! Nenhuma notificação.</p>
+    </div>
+  );
+
   const cores={
     critico:{bg:"#FEE2E2",borda:"#B91C1C",texto:"#7F1D1D"},
     atrasado:{bg:"#FFEDD5",borda:"#C2410C",texto:"#7C2D12"},
@@ -1369,24 +1309,31 @@ function Notificacoes({notificacoes,irParaLocal}){
     ok:{bg:"#DCFCE7",borda:"#15803D",texto:"#14532D"},
   };
   const grupos={
-    "🔴 Ação imediata":notificacoes.filter(n=>["critico","atrasado"].includes(n.tipo)),
-    "⚠️ Atenção":notificacoes.filter(n=>["urgente","atencao"].includes(n.tipo)),
-    "✅ Recentes":notificacoes.filter(n=>n.tipo==="novo"),
-    "🌿 Tranquila":notificacoes.filter(n=>n.tipo==="ok"),
+    "🔴 Ação imediata":visiveis.filter(n=>["critico","atrasado"].includes(n.tipo)),
+    "⚠️ Atenção":visiveis.filter(n=>["urgente","atencao"].includes(n.tipo)),
+    "✅ Recentes":visiveis.filter(n=>n.tipo==="novo"),
+    "🌿 Tranquila":visiveis.filter(n=>n.tipo==="ok"),
   };
+
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+        <button onClick={()=>setLidas(notificacoes.map((_,i)=>i))}
+          style={{padding:"8px 16px",background:"var(--bg-card)",border:"1px solid var(--border-med)",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",color:"var(--text-2)"}}>
+          🗑️ Limpar todas
+        </button>
+      </div>
       {Object.entries(grupos).map(([t,l])=>l.length===0?null:(
         <div key={t} className="card">
           <h3 className="card-title">{t} ({l.length})</h3>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {l.map((n,i)=>{
+              const idx=notificacoes.indexOf(n);
               const c=cores[n.tipo]||cores.ok;const cfg=STATUS[statusEfetivo(n.registro)];
               return(
-                <div key={i} style={{padding:"14px 16px",borderRadius:10,background:c.bg,border:`1px solid ${c.borda}`,borderLeft:`4px solid ${c.borda}`,cursor:"pointer"}}
-                  onClick={()=>irParaLocal(n.registro)}>
+                <div key={i} style={{padding:"14px 16px",borderRadius:10,background:c.bg,border:`1px solid ${c.borda}`,borderLeft:`4px solid ${c.borda}`}}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start"}}>
-                    <div style={{flex:1}}>
+                    <div style={{flex:1,cursor:"pointer"}} onClick={()=>irParaLocal(n.registro)}>
                       <p style={{fontWeight:800,fontSize:14,color:c.texto,marginBottom:4}}>{n.titulo}</p>
                       <p style={{fontSize:13,color:"#555",marginBottom:8}}>{n.msg}</p>
                       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1395,7 +1342,13 @@ function Notificacoes({notificacoes,irParaLocal}){
                         ))}
                       </div>
                     </div>
-                    <span className="badge" style={{background:cfg?.bg,color:cfg?.texto,flexShrink:0}}>{cfg?.emoji} {cfg?.label}</span>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0}}>
+                      <span className="badge" style={{background:cfg?.bg,color:cfg?.texto}}>{cfg?.emoji} {cfg?.label}</span>
+                      <button onClick={()=>setLidas(p=>[...p,idx])}
+                        style={{fontSize:11,color:c.texto,background:"rgba(255,255,255,.6)",border:`1px solid ${c.borda}`,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontWeight:600}}>
+                        ✕ Dispensar
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
