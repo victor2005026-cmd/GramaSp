@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Leaf, Map, ClipboardList, Bell,
   Settings, LogOut, Moon, Sun, ChevronDown, Plus,
   ArrowLeft, Scissors, TrendingUp, AlertTriangle,
-  MapPin, Loader2, CheckCircle2, X, User, FileText
+  MapPin, Loader2, CheckCircle2, X, FileText
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -400,8 +400,6 @@ export default function App(){
   const notifVisiveis=notificacoes.filter((_,i)=>!notifsLidas.includes(i));
   const naoLidas=notifVisiveis.filter(n=>["critico","atrasado","urgente"].includes(n.tipo)).length;
   const irGramas=(f={})=>{setFiltroGramas(f);setLocalFoco(null);setTela("gramas");};
-  const isDark=tema!=="claro";
-
   if(authLoading) return(
     <div className="login-page">
       <div className="login-card" style={{alignItems:"center",gap:16}}>
