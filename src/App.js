@@ -842,11 +842,11 @@ function Mapa({registros,irParaLocal}){
                 <Popup>
                   <div style={{minWidth:160,fontFamily:"inherit"}}>
                     <p style={{fontWeight:700,fontSize:14,marginBottom:6}}>{bairro}</p>
-                    {v.critico>0&&<p style={{color:"#E53935",fontSize:12}} style={{display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="critico" size={8}/> Crítico: {v.critico}</p>}
-                    {v.alta>0&&<p style={{color:"#F57C00",fontSize:12}} style={{display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="alta" size={8}/> Alta: {v.alta}</p>}
-                    {v.media>0&&<p style={{color:"#F9A825",fontSize:12}} style={{display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="media" size={8}/> Média: {v.media}</p>}
-                    {v.baixa>0&&<p style={{color:"#2E7D32",fontSize:12}} style={{display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="baixa" size={8}/> Curta: {v.baixa}</p>}
-                    {v.cortada>0&&<p style={{color:"#1565C0",fontSize:12}} style={{display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="cortada" size={8}/> Cortada: {v.cortada}</p>}
+                    {v.critico>0&&<p style={{color:"#E53935",fontSize:12,display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="critico" size={8}/> Crítico: {v.critico}</p>}
+                    {v.alta>0&&<p style={{color:"#F57C00",fontSize:12,display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="alta" size={8}/> Alta: {v.alta}</p>}
+                    {v.media>0&&<p style={{color:"#F9A825",fontSize:12,display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="media" size={8}/> Média: {v.media}</p>}
+                    {v.baixa>0&&<p style={{color:"#2E7D32",fontSize:12,display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="baixa" size={8}/> Curta: {v.baixa}</p>}
+                    {v.cortada>0&&<p style={{color:"#1565C0",fontSize:12,display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="cortada" size={8}/> Cortada: {v.cortada}</p>}
                   </div>
                 </Popup>
               </CircleMarker>
