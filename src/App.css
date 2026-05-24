@@ -691,3 +691,58 @@ body.tema-claro .busca-endereco-secundario{color:#7A8F70}
   0%,100%{transform:scale(1);opacity:.35}
   50%{transform:scale(1.8);opacity:0}
 }
+
+/* ── MOBILE FIXES ─────────────────────────────────────────────────── */
+/* Formulário vistoria: 3 colunas → 1 coluna no mobile */
+.form-grid-mobile{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:12px;
+}
+@media(max-width:600px){
+  .form-grid-mobile{
+    grid-template-columns:1fr;
+  }
+  /* Dropdown notif não sair da tela */
+  .notif-dropdown{
+    right:0!important;
+    left:auto!important;
+    max-width:calc(100vw - 20px)!important;
+    width:320px!important;
+  }
+  /* Topbar no mobile — esconder textos longos */
+  .topbar-sub{ display:none; }
+  .btn-pdf span{ display:none; }
+}
+
+/* Botões extras mobile (sair/tema) — visíveis só na bottombar mobile */
+.mobile-extra-btns{
+  display:none;
+}
+@media(max-width:768px){
+  .mobile-extra-btns{
+    display:flex;
+    gap:4px;
+    padding:6px 8px;
+    border-top:1px solid var(--border);
+    margin-top:4px;
+  }
+  .mobile-extra-btns button{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:3px;
+    padding:6px 4px;
+    background:transparent;
+    border:none;
+    cursor:pointer;
+    color:var(--text-2);
+    font-size:10px;
+    font-weight:600;
+    border-radius:6px;
+  }
+  .mobile-extra-btns button:hover{
+    background:var(--bg-hover);
+  }
+}

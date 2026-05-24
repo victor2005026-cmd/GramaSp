@@ -473,6 +473,15 @@ export default function App(){
             </div>
             <span className="sb-perfil-arrow"><ChevronDown size={14}/></span>
           </button>
+          {/* Botões extras visíveis só no mobile na bottombar */}
+          <div className="mobile-extra-btns">
+            <button onClick={e=>{e.stopPropagation();setTema(tema==="claro"?"escuro":"claro");}}>
+              {tema==="claro"?<><Moon size={14}/><span>Escuro</span></>:<><Sun size={14}/><span>Claro</span></>}
+            </button>
+            <button onClick={e=>{e.stopPropagation();sair();}} style={{color:"var(--red-t)"}}>
+              <LogOut size={14}/><span>Sair</span>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -503,7 +512,7 @@ export default function App(){
               {naoLidas>0&&<span className="notif-badge">{naoLidas}</span>}
             </button>
             {notifAberta&&(
-              <div className="notif-dropdown" onClick={e=>e.stopPropagation()}>
+              <div className="notif-dropdown" onClick={e=>e.stopPropagation()} style={{right:0,maxWidth:"calc(100vw - 20px)"}}>
                 <div className="notif-dropdown-header">
                   <strong>Notificações</strong>
                   {/* ✅ Botão limpar direto no dropdown do sino */}
@@ -780,21 +789,6 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
 
 // ── MAPA ─────────────────────────────────────────────────────────────────────
 function Mapa({registros,irParaLocal}){
-  const [tipo,setTipo]=useState("locais");
-  const porBairro={};
-  registros.forEach(r=>{
-    const status=statusEfetivo(r);
-    if(!porBairro[r.bairro]) porBairro[r.bairro]={critico:0,alta:0,media:0,baixa:0,cortada:0,total:0};
-    porBairro[r.bairro][status]=(porBairro[r.bairro][status]||0)+1;
-    porBairro[r.bairro].total++;
-  });
-  const corBairro=v=>{
-    if(v.critico>0) return "#E53935";
-    if(v.alta>0)    return "#F57C00";
-    if(v.media>0)   return "#F9A825";
-    if(v.baixa>0)   return "#2E7D32";
-    return "#1565C0";
-  };
   const registrosNoMapa=registros.filter(r=>r.latitude&&r.longitude);
   const renderGeo=(r)=>{
     const status=statusEfetivo(r);const cfg=STATUS[status]||STATUS.baixa;
@@ -819,10 +813,7 @@ function Mapa({registros,irParaLocal}){
   return(
     <div className="mapa-container">
       <div className="card mapa-controles">
-        <div className="mapa-tabs">
-          <button className={`mapa-tab ${tipo==="locais"?"ativo":""}`} onClick={()=>setTipo("locais")}>📍 Por local ({registrosNoMapa.length})</button>
-          <button className={`mapa-tab ${tipo==="bairros"?"ativo":""}`} onClick={()=>setTipo("bairros")}>🗺️ Por bairro ({Object.keys(porBairro).length})</button>
-        </div>
+        <p style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:8}}>📍 {registrosNoMapa.length} local(is) no mapa</p>
         <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
           {[["#E53935","Crítico"],["#F57C00","Alta"],["#F9A825","Média"],["#2E7D32","Curta"],["#1565C0","Cortada"]].map(([c,l])=>(
             <div key={l} className="leg-item"><div className="leg-dot" style={{background:c}}/><span>{l}</span></div>
@@ -832,25 +823,7 @@ function Mapa({registros,irParaLocal}){
       <div className="mapa-wrapper">
         <MapContainer center={[-23.9608,-46.3336]} zoom={13} style={{height:"100%",width:"100%"}}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap'/>
-          {tipo==="bairros"&&Object.entries(porBairro).map(([bairro,v])=>{
-            const coords=COORDS_BAIRROS[bairro]; if(!coords) return null;
-            const cor=corBairro(v); const raio=Math.max(12,Math.min(36,v.total*8));
-            return(
-              <CircleMarker key={bairro} center={coords} radius={raio} pathOptions={{color:cor,fillColor:cor,fillOpacity:.7,weight:2}}>
-                <Popup>
-                  <div style={{minWidth:160,fontFamily:"inherit"}}>
-                    <p style={{fontWeight:700,fontSize:14,marginBottom:6}}>{bairro}</p>
-                    {v.critico>0&&<p style={{color:"#E53935",fontSize:12,display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="critico" size={8}/> Crítico: {v.critico}</p>}
-                    {v.alta>0&&<p style={{color:"#F57C00",fontSize:12,display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="alta" size={8}/> Alta: {v.alta}</p>}
-                    {v.media>0&&<p style={{color:"#F9A825",fontSize:12,display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="media" size={8}/> Média: {v.media}</p>}
-                    {v.baixa>0&&<p style={{color:"#2E7D32",fontSize:12,display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="baixa" size={8}/> Curta: {v.baixa}</p>}
-                    {v.cortada>0&&<p style={{color:"#1565C0",fontSize:12,display:"flex",alignItems:"center",gap:5}}><StatusDot statusKey="cortada" size={8}/> Cortada: {v.cortada}</p>}
-                  </div>
-                </Popup>
-              </CircleMarker>
-            );
-          })}
-          {tipo==="locais"&&registros.map(r=>{
+          {registros.map(r=>{
             if(r.geometria) return renderGeo(r);
             if(!r.latitude||!r.longitude) return null;
             const status=statusEfetivo(r);const cfg=STATUS[status]||STATUS.baixa;
@@ -1174,7 +1147,7 @@ function Vistoria({salvar,voltar}){
           <BuscaEndereco value={form.local} onChange={v=>set("local",v)} onSelect={handleSelectEndereco}/>
           <span className="form-hint">Sugestões aparecem automaticamente enquanto você digita</span>
         </div>
-        <div className="form-grid-3" style={{marginBottom:14}}>
+        <div className="form-grid-mobile" style={{marginBottom:14}}>
           <div className="form-group"><label>Metragem (m²)</label><input type="number" placeholder="Ex: 150" value={form.metragem} onChange={e=>set("metragem",e.target.value)}/></div>
           <div className="form-group"><label>Data da vistoria</label><input type="date" value={form.data} onChange={e=>set("data",e.target.value)}/></div>
           <div className="form-group"><label>Altura estimada</label><input placeholder="Ex: 25 cm" value={form.altura} onChange={e=>set("altura",e.target.value)}/></div>

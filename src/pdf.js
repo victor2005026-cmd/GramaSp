@@ -4,9 +4,8 @@ async function gerarPDFGeral(registros){
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
   const hoje=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"});
   const horaStr=new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-  const W=210,M=15;
+  const W=210,M=14;
 
-  // Cores
   const verde=[21,97,35],verdeClaro=[220,242,224];
   const cinzaEsc=[40,40,40],cinzaMed=[100,100,100],cinzaClr=[240,240,240];
   const vermelho=[229,57,53],laranja=[245,124,0],amarelo=[249,168,37],
@@ -20,33 +19,29 @@ async function gerarPDFGeral(registros){
     return azul;
   };
   const labelStatus=(s)=>{
-    if(s==="critico") return "Crítico";
+    if(s==="critico") return "Critico";
     if(s==="alta")    return "Alta";
-    if(s==="media")   return "Média";
+    if(s==="media")   return "Media";
     if(s==="baixa")   return "Curta";
-    if(s==="cortada") return "Recém cortada";
+    if(s==="cortada") return "Cortada";
     return s;
   };
 
   // ── CABEÇALHO ──
   doc.setFillColor(...verde);
   doc.rect(0,0,W,28,"F");
-  doc.setFillColor(...verdeClaro);
-  doc.rect(0,28,W,1,"F");
-
   doc.setTextColor(255,255,255);
   doc.setFontSize(20);doc.setFont("helvetica","bold");
   doc.text("GramaSP",M,13);
   doc.setFontSize(9);doc.setFont("helvetica","normal");
-  doc.text("Sistema de Monitoramento de Áreas Verdes",M,19);
-  doc.text("Prefeitura Municipal de Santos — Jardins de Santos",M,24);
-
+  doc.text("Sistema de Monitoramento de Areas Verdes",M,19);
+  doc.text("Prefeitura Municipal de Santos - Jardins de Santos",M,24);
   doc.setFontSize(9);
-  doc.text(`Gerado em ${hoje} às ${horaStr}`,W-M,13,{align:"right"});
-  doc.text("Relatório Geral de Vistorias",W-M,19,{align:"right"});
+  doc.text(`Gerado em ${hoje} as ${horaStr}`,W-M,13,{align:"right"});
+  doc.text("Relatorio Geral de Vistorias",W-M,19,{align:"right"});
 
   // ── RESUMO KPI ──
-  let y=38;
+  let y=36;
   doc.setTextColor(...cinzaEsc);
   doc.setFontSize(13);doc.setFont("helvetica","bold");
   doc.text("Resumo Geral",M,y);y+=7;
@@ -70,12 +65,12 @@ async function gerarPDFGeral(registros){
   };
 
   const kpis=[
-    {label:"Total de Locais",val:counts.total,cor:[60,120,80]},
-    {label:"Crítico",val:counts.critico,cor:vermelho},
+    {label:"Total",val:counts.total,cor:[60,120,80]},
+    {label:"Critico",val:counts.critico,cor:vermelho},
     {label:"Alta",val:counts.alta,cor:laranja},
-    {label:"Média",val:counts.media,cor:amarelo},
+    {label:"Media",val:counts.media,cor:amarelo},
     {label:"Curta",val:counts.baixa,cor:verde2},
-    {label:"Recém Cortada",val:counts.cortada,cor:azul},
+    {label:"Cortada",val:counts.cortada,cor:azul},
   ];
   const kw=28,kh=18,kg=3;
   kpis.forEach((k,i)=>{
@@ -99,42 +94,42 @@ async function gerarPDFGeral(registros){
     doc.roundedRect(M,y,W-2*M,8,1,1,"S");
     doc.setTextColor(...vermelho);
     doc.setFontSize(9);doc.setFont("helvetica","bold");
-    doc.text(`⚠  ${urgentes.length} local(is) precisam de atenção imediata`,M+4,y+5);
+    doc.text(`! ${urgentes.length} local(is) precisam de atencao imediata`,M+4,y+5);
     y+=13;
   }
 
   // ── TABELA ──
   doc.setTextColor(...cinzaEsc);
   doc.setFontSize(13);doc.setFont("helvetica","bold");
-  doc.text("Todos os Locais",M,y);y+=6;
+  doc.text("Todos os Locais",M,y);y+=5;
 
-  // cabeçalho tabela
+  // Colunas redesenhadas para caber sem cortar
+  // Total útil: 210 - 28 = 182mm
   const cols=[
-    {label:"Local / Endereço",w:65,x:M},
-    {label:"Bairro",w:30,x:M+65},
-    {label:"Metragem",w:22,x:M+95},
-    {label:"Data Vistoria",w:28,x:M+117},
-    {label:"Status",w:24,x:M+145},
-    {label:"Próx. Corte",w:21,x:M+169},
+    {label:"Local / Endereco",   w:60, x:M},
+    {label:"Bairro",             w:28, x:M+60},
+    {label:"Metragem",           w:20, x:M+88},
+    {label:"Data",               w:22, x:M+108},
+    {label:"Status",             w:24, x:M+130},
+    {label:"Proximo Corte",      w:34, x:M+154},
   ];
 
+  // cabeçalho tabela
   doc.setFillColor(...verde);
   doc.rect(M,y,W-2*M,7,"F");
   doc.setTextColor(255,255,255);
-  doc.setFontSize(8);doc.setFont("helvetica","bold");
+  doc.setFontSize(7.5);doc.setFont("helvetica","bold");
   cols.forEach(c=>doc.text(c.label,c.x+1,y+5));
   y+=7;
 
-  // linhas
   regs.forEach((r,i)=>{
-    if(y>270){
+    if(y>272){
       doc.addPage();
-      y=20;
-      // re-header
+      y=15;
       doc.setFillColor(...verde);
       doc.rect(M,y,W-2*M,7,"F");
       doc.setTextColor(255,255,255);
-      doc.setFontSize(8);doc.setFont("helvetica","bold");
+      doc.setFontSize(7.5);doc.setFont("helvetica","bold");
       cols.forEach(c=>doc.text(c.label,c.x+1,y+5));
       y+=7;
     }
@@ -144,37 +139,37 @@ async function gerarPDFGeral(registros){
     doc.rect(M,y,W-2*M,rowH,"F");
 
     doc.setTextColor(...cinzaEsc);
-    doc.setFontSize(7.5);doc.setFont("helvetica","normal");
+    doc.setFontSize(7);doc.setFont("helvetica","normal");
 
-    const local=(r.local||"").substring(0,32);
-    const bairro=(r.bairro||"").substring(0,18);
-    const met=r.metragem?`${r.metragem}m²`:"—";
+    // truncar nomes para caber na coluna
+    const local=(r.local||"").substring(0,28);
+    const bairro=(r.bairro||"").substring(0,16);
+    const met=r.metragem?`${r.metragem}m2`:"—";
     const dt=r.data?new Date(r.data+"T12:00:00").toLocaleDateString("pt-BR"):"—";
 
     const corte=new Date(r.data); corte.setDate(corte.getDate()+(r.dias_corte||0));
     const diff=Math.ceil((corte-new Date())/86400000);
-    const proxCorte=diff<=0?"Atrasado!":diff<=3?`Em ${diff}d!`:`Em ${diff}d`;
+    const proxCorte=diff<=0?"Atrasado!":diff<=3?`Em ${diff} dias!`:`Em ${diff} dias`;
 
     doc.text(local,cols[0].x+1,y+5);
     doc.text(bairro,cols[1].x+1,y+5);
     doc.text(met,cols[2].x+1,y+5);
     doc.text(dt,cols[3].x+1,y+5);
 
-    // badge status colorido
+    // badge status
     const sc=corStatus(r.st);
     doc.setFillColor(...sc);
-    doc.roundedRect(cols[4].x+1,y+1,20,5,1,1,"F");
+    doc.roundedRect(cols[4].x+1,y+1,21,5,1,1,"F");
     doc.setTextColor(255,255,255);
-    doc.setFontSize(6.5);doc.setFont("helvetica","bold");
-    doc.text(labelStatus(r.st),cols[4].x+11,y+5,{align:"center"});
+    doc.setFontSize(6);doc.setFont("helvetica","bold");
+    doc.text(labelStatus(r.st),cols[4].x+11.5,y+5,{align:"center"});
 
-    doc.setTextColor(diff<=0?vermelho[0]:diff<=3?laranja[0]:cinzaMed[0],
-                     diff<=0?vermelho[1]:diff<=3?laranja[1]:cinzaMed[1],
-                     diff<=0?vermelho[2]:diff<=3?laranja[2]:cinzaMed[2]);
-    doc.setFontSize(7.5);doc.setFont("helvetica",diff<=3?"bold":"normal");
+    // próximo corte com cor
+    const corCorte=diff<=0?vermelho:diff<=3?laranja:cinzaMed;
+    doc.setTextColor(...corCorte);
+    doc.setFontSize(7);doc.setFont("helvetica",diff<=3?"bold":"normal");
     doc.text(proxCorte,cols[5].x+1,y+5);
 
-    // linha divisória
     doc.setDrawColor(220,220,220);
     doc.line(M,y+rowH,W-M,y+rowH);
     y+=rowH;
@@ -188,8 +183,8 @@ async function gerarPDFGeral(registros){
     doc.rect(0,285,W,12,"F");
     doc.setTextColor(...cinzaMed);
     doc.setFontSize(7);doc.setFont("helvetica","normal");
-    doc.text("GramaSP — Sistema de Monitoramento de Áreas Verdes — Prefeitura Municipal de Santos",W/2,291,{align:"center"});
-    doc.text(`Página ${i} de ${pageCount}`,W-M,291,{align:"right"});
+    doc.text("GramaSP - Sistema de Monitoramento de Areas Verdes - Prefeitura Municipal de Santos",W/2,291,{align:"center"});
+    doc.text(`Pagina ${i} de ${pageCount}`,W-M,291,{align:"right"});
     doc.text(hoje,M,291);
   }
 
@@ -208,7 +203,6 @@ async function gerarPDFIndividual(registro){
   const vermelho=[229,57,53],laranja=[245,124,0],amarelo=[249,168,37],
         verde2=[46,125,50],azul=[21,101,192];
 
-  // status
   let st=registro.status_calculado&&registro.status_calculado!=="atrasada"
     ?registro.status_calculado:registro.status;
   if(registro.status==="cortada"){
@@ -216,32 +210,30 @@ async function gerarPDFIndividual(registro){
     if(d>=2) st="baixa";
   }
   const corSt=st==="critico"?vermelho:st==="alta"?laranja:st==="media"?amarelo:st==="baixa"?verde2:azul;
-  const labelSt=st==="critico"?"Crítico":st==="alta"?"Alta":st==="media"?"Média":st==="baixa"?"Curta":"Recém cortada";
+  const labelSt=st==="critico"?"Critico":st==="alta"?"Alta":st==="media"?"Media":st==="baixa"?"Curta":"Cortada";
 
-  // ── CABEÇALHO ──
+  // CABEÇALHO
   doc.setFillColor(...verde);
   doc.rect(0,0,W,28,"F");
   doc.setTextColor(255,255,255);
   doc.setFontSize(20);doc.setFont("helvetica","bold");
   doc.text("GramaSP",M,13);
   doc.setFontSize(9);doc.setFont("helvetica","normal");
-  doc.text("Relatório Individual de Vistoria",M,19);
-  doc.text("Prefeitura Municipal de Santos — Jardins de Santos",M,24);
-  doc.setFontSize(9);
+  doc.text("Relatorio Individual de Vistoria",M,19);
+  doc.text("Prefeitura Municipal de Santos - Jardins de Santos",M,24);
   doc.text(`Emitido em ${hoje}`,W-M,19,{align:"right"});
 
-  // ── TÍTULO LOCAL ──
+  // TÍTULO LOCAL
   let y=36;
   doc.setFillColor(...cinzaClr);
   doc.roundedRect(M,y,W-2*M,14,2,2,"F");
   doc.setTextColor(...cinzaEsc);
-  doc.setFontSize(14);doc.setFont("helvetica","bold");
-  doc.text(registro.local||"Local não informado",M+4,y+6);
+  doc.setFontSize(13);doc.setFont("helvetica","bold");
+  const localTxt=(registro.local||"Local nao informado").substring(0,50);
+  doc.text(localTxt,M+4,y+6);
   doc.setFontSize(9);doc.setFont("helvetica","normal");
   doc.setTextColor(...cinzaMed);
-  doc.text(`${registro.bairro||""}${registro.metragem?` · ${registro.metragem}m²`:""}`,M+4,y+11);
-
-  // badge status
+  doc.text(`${registro.bairro||""}${registro.metragem?` · ${registro.metragem}m2`:""}`,M+4,y+11);
   doc.setFillColor(...corSt);
   doc.roundedRect(W-M-30,y+2,30,10,2,2,"F");
   doc.setTextColor(255,255,255);
@@ -249,7 +241,7 @@ async function gerarPDFIndividual(registro){
   doc.text(labelSt,W-M-15,y+9,{align:"center"});
   y+=20;
 
-  // ── FOTO ──
+  // FOTO
   if(registro.foto&&registro.foto.startsWith("data:image")){
     try{
       const imgH=55;
@@ -257,62 +249,58 @@ async function gerarPDFIndividual(registro){
       doc.setDrawColor(220,220,220);
       doc.rect(M,y,W-2*M,imgH);
       y+=imgH+6;
-    }catch(e){ y+=2; }
+    }catch(e){y+=2;}
   }
 
-  // ── DADOS DA VISTORIA ──
+  // DADOS
   doc.setTextColor(...cinzaEsc);
   doc.setFontSize(11);doc.setFont("helvetica","bold");
-  doc.text("Dados da Vistoria",M,y);y+=5;
-
+  doc.text("Dados da Vistoria",M,y);y+=4;
   doc.setFillColor(...verde);
   doc.rect(M,y,W-2*M,0.5,"F");
-  y+=4;
+  y+=5;
 
-  const corte=new Date(registro.data); corte.setDate(corte.getDate()+(registro.dias_corte||0));
+  const corte=new Date(registro.data||new Date());
+  corte.setDate(corte.getDate()+(registro.dias_corte||0));
   const diff=Math.ceil((corte-new Date())/86400000);
   const diasDesde=Math.ceil((new Date()-new Date((registro.data||"")+"T12:00:00"))/86400000);
-
   const cresc=registro.crescimento_estimado_cm!=null
     ?Number(registro.crescimento_estimado_cm).toFixed(1)
     :(diasDesde/7*(st==="critico"?.5:st==="alta"?.4:st==="media"?.3:st==="baixa"?.25:.2)*10).toFixed(1);
+  const proxCorte=diff<=0?"Atrasado!":diff<=3?`Em ${diff} dias (urgente)`:`Em ${diff} dias`;
 
   const campos=[
     ["Data da vistoria", registro.data?new Date(registro.data+"T12:00:00").toLocaleDateString("pt-BR"):"—"],
     ["Bairro", registro.bairro||"—"],
-    ["Metragem", registro.metragem?`${registro.metragem}m²`:"—"],
-    ["Altura registrada", registro.altura||"Não informada"],
+    ["Metragem", registro.metragem?`${registro.metragem}m2`:"—"],
+    ["Altura registrada", registro.altura||"Nao informada"],
     ["Dias desde a vistoria", `${diasDesde} dias`],
     ["Crescimento estimado", `${cresc} cm`],
-    ["Próximo corte", diff<=0?"⚠ Atrasado!":diff<=3?`Em ${diff} dias (urgente)`:`Em ${diff} dias`],
-    ["Dias para o corte (configurado)", registro.dias_corte?`${registro.dias_corte} dias`:"—"],
+    ["Proximo corte", proxCorte],
+    ["Dias para o corte", registro.dias_corte?`${registro.dias_corte} dias`:"—"],
   ];
 
-  // grade 2 colunas
   const cw=(W-2*M-4)/2;
   campos.forEach((c,i)=>{
     const col=i%2;
     const row=Math.floor(i/2);
     const cx=M+col*(cw+4);
     const cy=y+row*12;
-
     doc.setFillColor(col===0?248:252,col===0?252:248,248);
     doc.roundedRect(cx,cy,cw,10,1,1,"F");
     doc.setDrawColor(225,225,225);
     doc.roundedRect(cx,cy,cw,10,1,1,"S");
-
     doc.setTextColor(...cinzaMed);
     doc.setFontSize(7);doc.setFont("helvetica","normal");
     doc.text(c[0],cx+3,cy+4);
-
-    const isUrgente=c[0]==="Próximo corte"&&diff<=3;
-    doc.setTextColor(...(isUrgente?vermelho:cinzaEsc));
+    const isUrg=c[0]==="Proximo corte"&&diff<=3;
+    doc.setTextColor(...(isUrg?vermelho:cinzaEsc));
     doc.setFontSize(9);doc.setFont("helvetica","bold");
-    doc.text(String(c[1]),cx+3,cy+9);
+    doc.text(String(c[1]).substring(0,28),cx+3,cy+9);
   });
   y+=Math.ceil(campos.length/2)*12+6;
 
-  // ── BARRA CRESCIMENTO ──
+  // BARRA CRESCIMENTO
   doc.setFillColor(...verdeClaro);
   doc.roundedRect(M,y,W-2*M,16,2,2,"F");
   doc.setTextColor(...cinzaEsc);
@@ -325,14 +313,14 @@ async function gerarPDFIndividual(registro){
   doc.roundedRect(M+4,y+8,(W-2*M-8)*pct/100,4,1,1,"F");
   doc.setTextColor(...cinzaMed);
   doc.setFontSize(7);doc.setFont("helvetica","normal");
-  doc.text(`${pct.toFixed(0)}% do ciclo — estimativa: ${cresc}cm`,W-M-4,y+13,{align:"right"});
+  doc.text(`${pct.toFixed(0)}% do ciclo - estimativa: ${cresc}cm`,W-M-4,y+13,{align:"right"});
   y+=22;
 
-  // ── OBSERVAÇÕES ──
+  // OBSERVAÇÕES
   if(registro.obs){
     doc.setTextColor(...cinzaEsc);
     doc.setFontSize(11);doc.setFont("helvetica","bold");
-    doc.text("Observações",M,y);y+=5;
+    doc.text("Observacoes",M,y);y+=4;
     doc.setFillColor(255,255,255);
     doc.setDrawColor(220,220,220);
     const obsLines=doc.splitTextToSize(registro.obs,W-2*M-6);
@@ -344,14 +332,14 @@ async function gerarPDFIndividual(registro){
     y+=obsH+6;
   }
 
-  // ── RODAPÉ ──
+  // RODAPÉ
   doc.setFillColor(...cinzaClr);
   doc.rect(0,285,W,12,"F");
   doc.setTextColor(...cinzaMed);
   doc.setFontSize(7);doc.setFont("helvetica","normal");
-  doc.text("GramaSP — Sistema de Monitoramento de Áreas Verdes — Prefeitura Municipal de Santos",W/2,291,{align:"center"});
+  doc.text("GramaSP - Sistema de Monitoramento de Areas Verdes - Prefeitura Municipal de Santos",W/2,291,{align:"center"});
   doc.text(hoje,M,291);
-  doc.text("Página 1 de 1",W-M,291,{align:"right"});
+  doc.text("Pagina 1 de 1",W-M,291,{align:"right"});
 
   const nomeArq=(registro.local||"local").replace(/[^a-z0-9]/gi,"_").substring(0,30);
   doc.save(`GramaSP_Vistoria_${nomeArq}_${hoje.replace(/\//g,"-")}.pdf`);
