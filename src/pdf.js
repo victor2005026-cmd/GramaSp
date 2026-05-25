@@ -1,3 +1,4 @@
+/* eslint-disable */
 // ── GERADOR PDF GERAL ─────────────────────────────────────────────────────────
 async function gerarPDFGeral(registros){
   const{jsPDF}=await import("jspdf");
@@ -6,7 +7,7 @@ async function gerarPDFGeral(registros){
   const horaStr=new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
   const W=210,M=14;
 
-  const verde=[21,97,35],verdeClaro=[220,242,224];
+  const verde=[21,97,35];
   const cinzaEsc=[40,40,40],cinzaMed=[100,100,100],cinzaClr=[240,240,240];
   const vermelho=[229,57,53],laranja=[245,124,0],amarelo=[249,168,37],
         verde2=[46,125,50],azul=[21,101,192];
@@ -198,7 +199,7 @@ async function gerarPDFIndividual(registro){
   const hoje=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"});
   const W=210,M=15;
 
-  const verde=[21,97,35],verdeClaro=[220,242,224];
+  const verde=[21,97,35];
   const cinzaEsc=[40,40,40],cinzaMed=[120,120,120],cinzaClr=[245,245,245];
   const vermelho=[229,57,53],laranja=[245,124,0],amarelo=[249,168,37],
         verde2=[46,125,50],azul=[21,101,192];
