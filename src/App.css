@@ -585,14 +585,29 @@ body.tema-claro .sync-badge{background:#F1F5EF;border-color:#DDE5D8;color:#7A907
 
 /* CELULAR */
 @media(max-width:768px){
-  .sidebar{width:100%;height:58px;min-height:unset;flex-direction:row;position:fixed;bottom:0;top:unset;left:0;right:0;z-index:100;border-top:1px solid var(--border);border-right:none}
+  .sidebar{width:100%;height:62px;min-height:unset;flex-direction:row;position:fixed;bottom:0;top:unset;left:0;right:0;z-index:100;border-top:1px solid var(--border);border-right:none}
   .sb-logo,.sb-perfil-wrap,.nav-section{display:none}
   nav{flex-direction:row;padding:0;justify-content:space-around;align-items:center;width:100%}
-  .nav-item{flex-direction:column;gap:2px;padding:7px 4px;font-size:9px;border-radius:0;flex:1;min-width:0;margin-bottom:0}
+  /* nav-item mobile: posição relativa para badge absoluto */
+  .nav-item{flex-direction:column;gap:2px;padding:8px 2px;font-size:9px;border-radius:0;flex:1;min-width:0;margin-bottom:0;position:relative;align-items:center;justify-content:center}
   .nav-item.active{border:none;background:transparent;color:var(--green-3)}
   .nav-item.active::before{display:none}
-  .nav-icon{width:20px;height:20px}
-  .main{margin-left:0;width:100%;padding-bottom:58px}
+  .nav-icon{width:20px;height:20px;flex-shrink:0}
+  /* Badge: posição absoluta sobre o ícone, não empurra layout */
+  .nav-badge{
+    position:absolute;
+    top:4px;
+    right:calc(50% - 18px);
+    margin-left:0;
+    min-width:14px;
+    height:14px;
+    font-size:8px;
+    padding:0 4px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .main{margin-left:0;width:100%;padding-bottom:62px}
   .topbar{padding:0 14px;height:52px}
   .topbar-title{font-size:15px}
   .topbar-sub{display:none}
@@ -601,14 +616,33 @@ body.tema-claro .sync-badge{background:#F1F5EF;border-color:#DDE5D8;color:#7A907
   .kpi-num{font-size:24px}
   .grid2{grid-template-columns:1fr}
   .gramas-grid{grid-template-columns:repeat(2,1fr);gap:9px}
-  .form-grid,.form-grid-3{grid-template-columns:1fr}
+  .form-grid,.form-grid-3,.form-grid-mobile{grid-template-columns:1fr !important}
   .status-btns{grid-template-columns:repeat(2,1fr)}
   .detalhe-grid{grid-template-columns:1fr}
-  .notif-dropdown{width:290px;right:-50px}
+  /* Notif dropdown: fixo, não sai da tela */
+  .notif-dropdown{position:fixed !important;top:60px !important;right:8px !important;left:8px !important;width:auto !important;max-width:100% !important}
   .toast{right:10px;left:10px;max-width:unset;top:10px}
   .vistoria-acoes{flex-direction:column}
   .btn-salvar,.btn-voltar{width:100%;min-width:unset}
   .mapa-container{height:calc(100vh - 110px)}
+  /* Input date no mobile: mesma altura que outros inputs */
+  input[type="date"]{
+    height:42px;
+    padding:9px 13px;
+    -webkit-appearance:none;
+    appearance:none;
+    font-size:13px;
+    line-height:1.4;
+  }
+  /* Texto nav menor para não quebrar */
+  .nav-item>span:not(.nav-icon):not(.nav-badge){
+    font-size:8px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:56px;
+    text-align:center;
+  }
 }
 
 /* ── LUCIDE: ajuste ícone nav para SVG ── */
