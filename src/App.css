@@ -700,8 +700,6 @@ body.tema-claro .busca-endereco-secundario{color:#7A8F70}
   gap:12px;
 }
 
-/* Botões extras mobile (sair/tema) — ocultos no desktop */
-.mobile-extra-btns{ display:none; }
 
 @media(max-width:768px){
   /* Formulário: 1 coluna */
@@ -728,31 +726,7 @@ body.tema-claro .busca-endereco-secundario{color:#7A8F70}
   }
   .main{ padding-bottom:80px !important; }
 
-  /* Botões extras (conta/tema/sair) — aparecem na bottombar ao lado da nav */
-  .mobile-extra-btns{
-    display:flex !important;
-    flex-direction:row;
-    align-items:stretch;
-    border-left:1px solid var(--border);
-  }
-  .mobile-extra-btns button{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    gap:2px;
-    padding:4px 8px;
-    background:transparent;
-    border:none;
-    border-right:1px solid var(--border);
-    cursor:pointer;
-    color:var(--text-2);
-    font-size:8px;
-    font-weight:600;
-    min-width:46px;
-  }
-  .mobile-extra-btns button:last-child{ border-right:none; }
-  .mobile-extra-btns button:active{ background:var(--bg-hover); }
+
 
   /* Nav items: texto mais curto */
   .nav-item span:not(.nav-icon):not(.nav-badge){

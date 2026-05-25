@@ -421,6 +421,7 @@ export default function App(){
   const NAV_REGISTROS=[
     {id:"historico",   Icon:ClipboardList, label:"Histórico"},
     {id:"notificacoes",Icon:Bell,          label:"Notificações", badge:naoLidas},
+    {id:"configuracoes",Icon:Settings,     label:"Configurações"},
   ];
 
   return(
@@ -477,18 +478,7 @@ export default function App(){
           </button>
 
         </div>
-        {/* Botões mobile — fora do sb-perfil-wrap para aparecer na bottombar */}
-        <div className="mobile-extra-btns">
-          <button onClick={e=>{e.stopPropagation();setTela("configuracoes");setNotifAberta(false);}}>
-            <Settings size={14}/><span>Conta</span>
-          </button>
-          <button onClick={e=>{e.stopPropagation();setTema(tema==="claro"?"escuro":"claro");}}>
-            {tema==="claro"?<><Moon size={14}/><span>Escuro</span></>:<><Sun size={14}/><span>Claro</span></>}
-          </button>
-          <button onClick={e=>{e.stopPropagation();sair();}} style={{color:"var(--red-t)"}}>
-            <LogOut size={14}/><span>Sair</span>
-          </button>
-        </div>
+
       </aside>
 
       <main className="main">
