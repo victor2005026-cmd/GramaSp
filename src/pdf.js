@@ -245,11 +245,24 @@ async function gerarPDFIndividual(registro){
   // FOTO
   if(registro.foto&&registro.foto.startsWith("data:image")){
     try{
-      const imgH=55;
-      doc.addImage(registro.foto,"JPEG",M,y,W-2*M,imgH);
+      // Calcular proporção real da imagem para não distorcer
+      const imgEl=new Image();
+      imgEl.src=registro.foto;
+      await new Promise(res=>{imgEl.onload=res;imgEl.onerror=res;});
+      const imgW=imgEl.naturalWidth||1;
+      const imgH_nat=imgEl.naturalHeight||1;
+      const maxW=W-2*M;
+      const maxH=70;
+      const ratio=Math.min(maxW/imgW,maxH/imgH_nat);
+      const drawW=imgW*ratio;
+      const drawH=imgH_nat*ratio;
+      const xCenter=M+(maxW-drawW)/2;
+      doc.setFillColor(245,245,245);
+      doc.roundedRect(M,y,maxW,drawH+4,2,2,"F");
+      doc.addImage(registro.foto,"JPEG",xCenter,y+2,drawW,drawH);
       doc.setDrawColor(220,220,220);
-      doc.rect(M,y,W-2*M,imgH);
-      y+=imgH+6;
+      doc.roundedRect(M,y,maxW,drawH+4,2,2,"S");
+      y+=drawH+10;
     }catch(e){y+=2;}
   }
 
