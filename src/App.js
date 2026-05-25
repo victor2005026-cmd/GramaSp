@@ -477,6 +477,9 @@ export default function App(){
           </button>
           {/* Botões extras visíveis só no mobile na bottombar */}
           <div className="mobile-extra-btns">
+            <button onClick={e=>{e.stopPropagation();setTela("configuracoes");}}>
+              <Settings size={14}/><span>Conta</span>
+            </button>
             <button onClick={e=>{e.stopPropagation();setTema(tema==="claro"?"escuro":"claro");}}>
               {tema==="claro"?<><Moon size={14}/><span>Escuro</span></>:<><Sun size={14}/><span>Claro</span></>}
             </button>
