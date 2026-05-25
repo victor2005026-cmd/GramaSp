@@ -865,7 +865,7 @@ function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,a
   useEffect(()=>{setFiltro(filtroInicial?.status||"");setFiltroB(filtroInicial?.bairro||"");},[filtroInicial]);
   useEffect(()=>{if(localFoco){setSel(localFoco);setLocalFoco(null);}},[localFoco,setLocalFoco]);
 
-  if(sel&&!editando&&!excluindo) return <Detalhe registro={sel} voltar={()=>setSel(null)} registrarCorte={registrarCorte} tema={tema}/>;
+  if(sel&&!editando&&!excluindo) return <Detalhe registro={sel} voltar={()=>setSel(null)} registrarCorte={registrarCorte} atualizar={atualizar} tema={tema}/>;
 
   const lista=registros
     .filter(r=>!filtro||statusEfetivo(r)===filtro)
@@ -1000,7 +1000,7 @@ function FormEditar({registro,onSalvar,onCancelar}){
 }
 
 // ── DETALHE ───────────────────────────────────────────────────────────────────
-function Detalhe({registro:r,voltar,registrarCorte,tema}){
+function Detalhe({registro:r,voltar,registrarCorte,atualizar,tema}){
   const status=statusEfetivo(r);
   const cfg=STATUS[status]||STATUS.baixa;
   const isDark=tema!=="claro";
@@ -1011,7 +1011,20 @@ function Detalhe({registro:r,voltar,registrarCorte,tema}){
   const cresc=r.crescimento_estimado_cm!=null?Number(r.crescimento_estimado_cm).toFixed(1):(diasDesde/7*cfg.cresc*10).toFixed(1);
   const pct=Math.min(100,diasDesde/30*100);
   const [registrando,setRegistrando]=useState(false);
+  const [alterandoStatus,setAlterandoStatus]=useState(false);
+  const [salvandoStatus,setSalvandoStatus]=useState(false);
   const handleCorte=async()=>{setRegistrando(true);await registrarCorte(r);setRegistrando(false);voltar();};
+  const handleAlterarStatus=async(novoStatus)=>{
+    setSalvandoStatus(true);
+    await atualizar(r.id,{
+      local:r.local,bairro:r.bairro,metragem:r.metragem,
+      data:r.data,status:novoStatus,altura:r.altura,
+      diasCorte:r.dias_corte,obs:r.obs,
+    });
+    setSalvandoStatus(false);
+    setAlterandoStatus(false);
+    voltar();
+  };
   return(
     <div>
       <button className="btn-voltar-detalhe" onClick={voltar}><ArrowLeft size={14}/> Voltar</button>
@@ -1059,6 +1072,43 @@ function Detalhe({registro:r,voltar,registrarCorte,tema}){
           </button>
         )}
         {status==="cortada"&&<div className="info-cortada">✅ Área cortada recentemente. Em breve passará para "Grama curta".</div>}
+        {/* ── ALTERAR STATUS ── */}
+        {!alterandoStatus?(
+          <button onClick={()=>setAlterandoStatus(true)}
+            style={{width:"100%",marginTop:10,padding:"11px",background:"var(--bg-soft)",border:"1px solid var(--border-med)",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer",color:"var(--text-2)",display:"flex",alignItems:"center",justifyContent:"center",gap:7,transition:"all .15s"}}>
+            <TrendingUp size={14}/> Alterar situação da grama
+          </button>
+        ):(
+          <div style={{marginTop:10,padding:14,background:"var(--bg-soft)",border:"1px solid var(--border-med)",borderRadius:9}}>
+            <p style={{fontSize:12,fontWeight:700,color:"var(--text)",marginBottom:10}}>Selecione o novo status:</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+              {Object.entries(STATUS).map(([key,cfg])=>{
+                const cores=statusCores(key,isDark);
+                return(
+                  <button key={key} onClick={()=>handleAlterarStatus(key)}
+                    disabled={salvandoStatus||statusEfetivo(r)===key}
+                    style={{
+                      padding:"10px 8px",borderRadius:8,border:`1px solid ${cfg.cor}40`,
+                      background:statusEfetivo(r)===key?cores.bg:"var(--bg-hover)",
+                      color:statusEfetivo(r)===key?cores.texto:"var(--text-2)",
+                      fontSize:12,fontWeight:700,cursor:statusEfetivo(r)===key?"default":"pointer",
+                      display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+                      opacity:statusEfetivo(r)===key?.6:1,transition:"all .15s"
+                    }}>
+                    <StatusDot statusKey={key} size={8}/>
+                    {cfg.label}
+                    {statusEfetivo(r)===key&&" ✓"}
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={()=>setAlterandoStatus(false)}
+              style={{width:"100%",marginTop:8,padding:"8px",background:"transparent",border:"none",fontSize:12,color:"var(--text-3)",cursor:"pointer",fontWeight:600}}>
+              Cancelar
+            </button>
+            {salvandoStatus&&<p style={{textAlign:"center",fontSize:12,color:"var(--text-3)",marginTop:6}}>Salvando...</p>}
+          </div>
+        )}
         <button onClick={()=>gerarPDFIndividual(r)}
           style={{width:"100%",marginTop:10,padding:"11px",background:"transparent",border:"1px solid var(--border-med)",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer",color:"var(--text-2)",display:"flex",alignItems:"center",justifyContent:"center",gap:7,transition:"all .15s"}}
           onMouseOver={e=>{e.currentTarget.style.background="var(--bg-hover)";e.currentTarget.style.color="var(--text)"}}

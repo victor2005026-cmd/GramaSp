@@ -719,14 +719,14 @@ body.tema-claro .busca-endereco-secundario{color:#7A8F70}
 
   /* Bottombar mobile: altura maior para caber tudo */
   .sidebar{
-    height:72px !important;
+    height:80px !important;
     align-items:stretch;
   }
   nav{
     height:100%;
     padding-bottom:0 !important;
   }
-  .main{ padding-bottom:72px !important; }
+  .main{ padding-bottom:80px !important; }
 
   /* Botões extras (tema/sair) — aparecem na bottombar */
   .mobile-extra-btns{
