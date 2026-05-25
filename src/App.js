@@ -27,28 +27,61 @@ L.Icon.Default.mergeOptions({
 });
 
 const BAIRROS=[
-  "Aparecida","Boqueirão","Campo Grande","Caneleira","Centro",
-  "Chico de Paula","Encruzilhada","Estuário","Gonzaga","José Menino",
-  "Macuco","Marapé","Morro de Nova Cintra","Paquetá","Pompéia",
-  "Ponta da Praia","Rádio Clube","Saboó","Santa Maria","Santana",
-  "Santo Antônio","São Jorge","Valongo","Vila Belmiro","Vila Mathias"
-];
+  // Zona Orla / Leste
+  "Aparecida","Boqueirão","Embaré","Gonzaga","José Menino","Pompéia","Ponta da Praia",
+  // Zona Central e Portuária
+  "Campo Grande","Centro","Encruzilhada","Estuário","Jabaquara","Macuco","Marapé",
+  "Paquetá","Saboó","Valongo","Vila Belmiro","Vila Mathias","Vila Nova","Vila Rica",
+  // Zona dos Morros
+  "Monte Serrat","Morro Cachoeira","Morro Caneleira","Morro Chico de Paula",
+  "Morro da Nova Cintra","Morro Embaré","Morro Fontana","Morro Jabaquara",
+  "Morro José Menino","Morro Marapé","Morro Pacheco","Morro Penha","Morro Saboó",
+  "Morro Santa Maria","Morro Santa Teresinha","Morro São Bento",
+  // Zona Noroeste
+  "Alemoa","Areia Branca","Bom Retiro","Caneleira","Castelo","Chico de Paula",
+  "Piratininga","Rádio Clube","Santa Maria","São Jorge","São Manoel",
+  "Vila Haddad","Outeirinho",
+  // Área Continental
+  "Barnabé","Cabuçu","Caruara","Guarapará","Ilha Diana","Iriri",
+  "Monte Cabrão","Quilombo","Sítio das Neves","Trindade",
+  // Mantidos do original
+  "Santana","Santo Antônio",
+].sort();
 
 // eslint-disable-next-line no-unused-vars
 const COORDS_BAIRROS={
   "Aparecida":[-23.9612,-46.3267],"Boqueirão":[-23.9498,-46.3198],
-  "Campo Grande":[-23.9834,-46.3201],"Caneleira":[-23.9701,-46.3401],
-  "Centro":[-23.9337,-46.3239],"Encruzilhada":[-23.9423,-46.3312],
-  "Estuário":[-23.9601,-46.3089],"Gonzaga":[-23.9790,-46.3312],
-  "José Menino":[-23.9901,-46.3289],"Macuco":[-23.9489,-46.3123],
+  "Embaré":[-23.9556,-46.3312],"Gonzaga":[-23.9790,-46.3312],
+  "José Menino":[-23.9901,-46.3289],"Pompéia":[-23.9623,-46.3389],
+  "Ponta da Praia":[-23.9934,-46.2967],
+  "Campo Grande":[-23.9834,-46.3201],"Centro":[-23.9337,-46.3239],
+  "Encruzilhada":[-23.9423,-46.3312],"Estuário":[-23.9601,-46.3089],
+  "Jabaquara":[-23.9867,-46.3145],"Macuco":[-23.9489,-46.3123],
   "Marapé":[-23.9678,-46.3234],"Paquetá":[-23.9756,-46.3089],
-  "Pompéia":[-23.9623,-46.3389],"Ponta da Praia":[-23.9934,-46.2967],
-  "Vila Belmiro":[-23.9734,-46.3267],"Vila Mathias":[-23.9423,-46.3201],
   "Saboó":[-23.9512,-46.3178],"Valongo":[-23.9301,-46.3178],
-  "Santa Maria":[-23.9389,-46.3289],"Santana":[-23.9545,-46.3234],
-  "Santo Antônio":[-23.9478,-46.3301],"São Jorge":[-23.9667,-46.3156],
-  "Chico de Paula":[-23.9550,-46.3050],"Rádio Clube":[-23.9467,-46.3045],
-  "Morro de Nova Cintra":[-23.9345,-46.3156],
+  "Vila Belmiro":[-23.9734,-46.3267],"Vila Mathias":[-23.9423,-46.3201],
+  "Vila Nova":[-23.9312,-46.3212],"Vila Rica":[-23.9456,-46.3067],
+  "Monte Serrat":[-23.9289,-46.3267],"Morro Cachoeira":[-23.9401,-46.3356],
+  "Morro Caneleira":[-23.9701,-46.3401],"Morro Chico de Paula":[-23.9550,-46.3050],
+  "Morro da Nova Cintra":[-23.9345,-46.3156],"Morro Embaré":[-23.9534,-46.3289],
+  "Morro Fontana":[-23.9467,-46.3312],"Morro Jabaquara":[-23.9845,-46.3134],
+  "Morro José Menino":[-23.9878,-46.3245],"Morro Marapé":[-23.9656,-46.3212],
+  "Morro Pacheco":[-23.9378,-46.3245],"Morro Penha":[-23.9412,-46.3289],
+  "Morro Saboó":[-23.9489,-46.3156],"Morro Santa Maria":[-23.9401,-46.3267],
+  "Morro Santa Teresinha":[-23.9434,-46.3234],"Morro São Bento":[-23.9356,-46.3289],
+  "Alemoa":[-23.9423,-46.3045],"Areia Branca":[-23.9534,-46.3012],
+  "Bom Retiro":[-23.9601,-46.3023],"Caneleira":[-23.9701,-46.3401],
+  "Castelo":[-23.9645,-46.3378],"Chico de Paula":[-23.9550,-46.3050],
+  "Piratininga":[-23.9623,-46.2978],"Rádio Clube":[-23.9467,-46.3045],
+  "Santa Maria":[-23.9389,-46.3289],"São Jorge":[-23.9667,-46.3156],
+  "São Manoel":[-23.9712,-46.3023],"Vila Haddad":[-23.9578,-46.2956],
+  "Outeirinho":[-23.9534,-46.3067],
+  "Barnabé":[-23.9156,-46.3456],"Cabuçu":[-23.9078,-46.3534],
+  "Caruara":[-23.8934,-46.3623],"Guarapará":[-23.9012,-46.3512],
+  "Ilha Diana":[-23.9089,-46.3401],"Iriri":[-23.8956,-46.3589],
+  "Monte Cabrão":[-23.9023,-46.3467],"Quilombo":[-23.9145,-46.3489],
+  "Sítio das Neves":[-23.9067,-46.3556],"Trindade":[-23.9034,-46.3523],
+  "Santana":[-23.9545,-46.3234],"Santo Antônio":[-23.9478,-46.3301],
 };
 
 // Cores de status adaptadas ao tema — fundo e texto usam variáveis CSS
@@ -89,6 +122,7 @@ function statusCores(key, isDark){
 }
 
 const KPI_ITEMS=[
+  {key:"critico",label:"Crítico",        Icon:AlertTriangle,classe:"kpi-critico"},
   {key:"alta",   label:"Grama Alta",     Icon:TrendingUp,   classe:"kpi-alta"},
   {key:"media",  label:"Grama Média",    Icon:Leaf,         classe:"kpi-media"},
   {key:"baixa",  label:"Grama Curta",    Icon:CheckCircle2, classe:"kpi-baixa"},

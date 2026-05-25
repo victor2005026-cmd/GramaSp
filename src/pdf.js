@@ -47,14 +47,16 @@ async function gerarPDFGeral(registros){
   doc.setFontSize(13);doc.setFont("helvetica","bold");
   doc.text("Resumo Geral",M,y);y+=7;
 
-  const regs=registros.map(r=>{
-    let st=r.status_calculado&&r.status_calculado!=="atrasada"?r.status_calculado:r.status;
+  // Mesma lógica do statusEfetivo do App.js
+  const stEfetivo=(r)=>{
+    if(r.status_calculado&&r.status_calculado!=="atrasada") return r.status_calculado;
     if(r.status==="cortada"){
       const d=Math.floor((new Date()-new Date(r.criado_em||r.data))/86400000);
-      if(d>=2) st="baixa";
+      if(d>=2) return "baixa";
     }
-    return{...r,st};
-  });
+    return r.status;
+  };
+  const regs=registros.map(r=>({...r,st:stEfetivo(r)}));
 
   const counts={
     total:regs.length,
