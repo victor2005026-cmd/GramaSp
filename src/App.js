@@ -29,9 +29,10 @@ L.Icon.Default.mergeOptions({
 const BAIRROS=[
   // Zona Orla / Leste
   "Aparecida","Boqueirão","Embaré","Gonzaga","José Menino","Pompéia","Ponta da Praia",
-  // Zona Central e Portuária
+  // Zona Central
   "Campo Grande","Centro","Encruzilhada","Estuário","Jabaquara","Macuco","Marapé",
-  "Paquetá","Saboó","Valongo","Vila Belmiro","Vila Mathias","Vila Nova","Vila Rica",
+  "Paquetá","Saboó","Santana","Santo Antônio","Valongo",
+  "Vila Belmiro","Vila Mathias","Vila Nova",
   // Zona dos Morros
   "Monte Serrat","Morro Cachoeira","Morro Caneleira","Morro Chico de Paula",
   "Morro da Nova Cintra","Morro Embaré","Morro Fontana","Morro Jabaquara",
@@ -39,13 +40,8 @@ const BAIRROS=[
   "Morro Santa Maria","Morro Santa Teresinha","Morro São Bento",
   // Zona Noroeste
   "Alemoa","Areia Branca","Bom Retiro","Caneleira","Castelo","Chico de Paula",
-  "Piratininga","Rádio Clube","Santa Maria","São Jorge","São Manoel",
-  "Vila Haddad","Outeirinho",
-  // Área Continental
-  "Barnabé","Cabuçu","Caruara","Guarapará","Ilha Diana","Iriri",
-  "Monte Cabrão","Quilombo","Sítio das Neves","Trindade",
-  // Mantidos do original
-  "Santana","Santo Antônio",
+  "Outeirinho","Piratininga","Rádio Clube","Santa Maria","São Jorge",
+  "São Manoel","Vila Haddad",
 ].sort();
 
 // eslint-disable-next-line no-unused-vars
@@ -247,7 +243,7 @@ function BairroBusca({value,onChange,placeholder="Buscar bairro..."}){
     document.addEventListener("mousedown",h);
     return()=>document.removeEventListener("mousedown",h);
   },[]);
-  const filtrados=BAIRROS.filter(b=>b.toLowerCase().includes(value.toLowerCase())).slice(0,8);
+  const filtrados=BAIRROS.filter(b=>b.toLowerCase().includes(value.toLowerCase()));
   return(
     <div className="busca-endereco-wrap" ref={ref}>
       <div className="busca-endereco-input-wrap">

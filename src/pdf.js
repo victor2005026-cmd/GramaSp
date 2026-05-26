@@ -97,7 +97,7 @@ async function gerarPDFGeral(registros){
     doc.roundedRect(M,y,W-2*M,8,1,1,"S");
     doc.setTextColor(...vermelho);
     doc.setFontSize(9);doc.setFont("helvetica","bold");
-    doc.text(`! ${urgentes.length} local(is) precisam de atencao imediata`,M+4,y+5);
+    doc.text(`${urgentes.length} local(is) precisam de atenção imediata!`,M+4,y+5);
     y+=13;
   }
 
