@@ -2,38 +2,7 @@
    GramaSP — Design System Premium (Lucide Icons)
    ============================================================ */
 :root {
-  --bg:         #0A0A0A;
-  --bg-card:    #111111;
-  --bg-soft:    #161616;
-  --bg-hover:   #1C1C1C;
-  --border:     #222222;
-  --border-med: #2E2E2E;
-  --text:       #F2F2F2;
-  --text-2:     #909090;
-  --text-3:     #555555;
-  --shadow-sm:  0 1px 3px rgba(0,0,0,.5);
-  --shadow-md:  0 4px 12px rgba(0,0,0,.6);
-  --shadow-lg:  0 12px 32px rgba(0,0,0,.7);
-  --green-9:    #031205;
-  --green-8:    #071F0B;
-  --green-7:    #0D3613;
-  --green-6:    #134D1B;
-  --green-5:    #1A6624;
-  --green-4:    #268A32;
-  --green-3:    #3DB84F;
-  --green-2:    #72D882;
-  --green-1:    #C2F0CB;
-  --red:        #DC2626; --red-bg:#1A0505; --red-t:#F87171;
-  --orange:     #EA580C; --orange-bg:#1A0800; --orange-t:#FB923C;
-  --yellow:     #D97706; --yellow-bg:#1A1000; --yellow-t:#FCD34D;
-  --emerald:    #16A34A; --emerald-bg:#051A0A; --emerald-t:#4ADE80;
-  --blue:       #2563EB; --blue-bg:#050F1A; --blue-t:#60A5FA;
-  --radius:     10px;
-  --glow:       0 0 24px -6px rgba(38,138,50,.3);
-  --sidebar-w:  240px;
-}
-
-body.tema-claro {
+  /* ── TEMA CLARO (padrão) ── */
   --bg:         #F8FAF7;
   --bg-card:    #FFFFFF;
   --bg-soft:    #F1F5EF;
@@ -46,14 +15,50 @@ body.tema-claro {
   --shadow-sm:  0 1px 3px rgba(0,0,0,.06);
   --shadow-md:  0 4px 12px rgba(0,0,0,.08);
   --shadow-lg:  0 12px 28px rgba(0,0,0,.10);
+  --green-9:    #031205;
+  --green-8:    #071F0B;
+  --green-7:    #0D3613;
+  --green-6:    #134D1B;
   --green-5:    #1A6624;
   --green-4:    #268A32;
   --green-3:    #1A6624;
-  --red-bg:     #FEE2E2; --red-t:#991B1B;
-  --orange-bg:  #FFEDD5; --orange-t:#9A3412;
-  --yellow-bg:  #FEF3C7; --yellow-t:#92400E;
-  --blue-bg:    #DBEAFE; --blue-t:#1E40AF;
+  --green-2:    #72D882;
+  --green-1:    #C2F0CB;
+  --red:        #DC2626; --red-bg:#FEE2E2; --red-t:#991B1B;
+  --orange:     #EA580C; --orange-bg:#FFEDD5; --orange-t:#9A3412;
+  --yellow:     #D97706; --yellow-bg:#FEF3C7; --yellow-t:#92400E;
+  --emerald:    #16A34A; --emerald-bg:#DCFCE7; --emerald-t:#15803D;
+  --blue:       #2563EB; --blue-bg:#DBEAFE; --blue-t:#1E40AF;
+  --radius:     10px;
+  --glow:       0 0 24px -6px rgba(26,102,36,.2);
+  --sidebar-w:  240px;
 }
+
+/* ── TEMA ESCURO (alternativo) ── */
+body.tema-escuro {
+  --bg:         #0A0A0A;
+  --bg-card:    #111111;
+  --bg-soft:    #161616;
+  --bg-hover:   #1C1C1C;
+  --border:     #222222;
+  --border-med: #2E2E2E;
+  --text:       #F2F2F2;
+  --text-2:     #909090;
+  --text-3:     #555555;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.5);
+  --shadow-md:  0 4px 12px rgba(0,0,0,.6);
+  --shadow-lg:  0 12px 32px rgba(0,0,0,.7);
+  --green-3:    #3DB84F;
+  --green-5:    #1A6624;
+  --green-4:    #268A32;
+  --red-bg:     #1A0505; --red-t:#F87171;
+  --orange-bg:  #1A0800; --orange-t:#FB923C;
+  --yellow-bg:  #1A1000; --yellow-t:#FCD34D;
+  --blue-bg:    #050F1A; --blue-t:#60A5FA;
+}
+
+/* Manter tema-claro como alias para compatibilidade */
+body.tema-claro {}
 
 *{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{height:100%;width:100%}
@@ -539,6 +544,59 @@ textarea{resize:vertical;min-height:80px}
 .login-logo{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--green-5),var(--green-8));color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--glow)}
 .login-brand h1{font-size:20px;font-weight:900;color:var(--text);letter-spacing:-.03em}
 .login-brand p{font-size:11px;color:var(--text-3);margin-top:2px}
+
+/* ── TEMA ESCURO — overrides completos ── */
+body.tema-escuro .sidebar{background:#111111;border-color:#222222}
+body.tema-escuro .topbar{background:#111111;border-color:#222222}
+body.tema-escuro .sb-logo-icon{background:linear-gradient(135deg,#1A6624,#071F0B)}
+body.tema-escuro .card,body.tema-escuro .chart-card{background:#111111;border-color:#222222}
+body.tema-escuro .kpi-card{background:#111111;border-color:#222222}
+body.tema-escuro .recente-item{background:#161616;border-color:#222222}
+body.tema-escuro .grama-card{background:#161616;border-color:#222222}
+body.tema-escuro .grama-foto{background:#1C1C1C}
+body.tema-escuro .nav-item.active{background:rgba(38,138,50,.1);color:#3DB84F;border-color:rgba(38,138,50,.15)}
+body.tema-escuro .nav-item.active::before{background:#268A32}
+body.tema-escuro .notif-dropdown,body.tema-escuro .modal-box{background:#111111;border-color:#222222}
+body.tema-escuro .sb-perfil-menu{background:#111111;border-color:#222222}
+body.tema-escuro .sb-perfil-btn{background:#161616;border-color:#222222}
+body.tema-escuro .detalhe-item{background:#161616;border-color:#222222}
+body.tema-escuro .busca-endereco-dropdown{background:#111111;border-color:#2E2E2E}
+body.tema-escuro input,body.tema-escuro select,body.tema-escuro textarea{background:#161616;border-color:#2E2E2E;color:#F2F2F2}
+body.tema-escuro .status-btn{background:#161616;border-color:#2E2E2E;color:#909090}
+body.tema-escuro .draw-toolbar{background:#161616;border-color:#222222}
+body.tema-escuro .draw-btn{background:#1C1C1C;border-color:#2E2E2E;color:#909090}
+body.tema-escuro .bairros-tags{background:#161616;border-color:#2E2E2E}
+body.tema-escuro .crescimento-box{background:#161616;border-color:#222222}
+body.tema-escuro .upload-placeholder{background:#161616;border-color:#2E2E2E}
+body.tema-escuro .kpi-icon-box{background:#161616;border-color:#222222;color:#909090}
+body.tema-escuro .chart-badge{background:#161616;border-color:#222222;color:#909090}
+body.tema-escuro .btn-editar{background:#1C1C1C;border-color:#2E2E2E;color:#909090}
+body.tema-escuro .notif-sino{background:#161616;border-color:#222222;color:#909090}
+body.tema-escuro .busca-endereco-input-wrap{background:#161616;border-color:#2E2E2E}
+body.tema-escuro .bairro-tag{background:rgba(38,138,50,.12);border-color:rgba(38,138,50,.22);color:#3DB84F}
+body.tema-escuro .alerta-banner{background:#1A0505;border-color:rgba(220,38,38,.2);color:#F87171}
+body.tema-escuro .login-page{background:radial-gradient(ellipse at 30% 20%,#071F0B 0%,#030805 55%,#000 100%)}
+body.tema-escuro .login-card{background:#111111;border-color:#222222}
+body.tema-escuro .nav-item{color:#909090}
+body.tema-escuro .nav-item:hover{background:#1C1C1C;color:#F2F2F2}
+body.tema-escuro .notif-titulo{color:#F2F2F2}
+body.tema-escuro .notif-msg{color:#909090}
+body.tema-escuro .btn-new{background:linear-gradient(135deg,#1A6624,#071F0B)}
+body.tema-escuro .btn-salvar{background:linear-gradient(135deg,#1A6624,#071F0B)}
+body.tema-escuro .coord-info{background:rgba(38,138,50,.08);border-color:rgba(38,138,50,.18);color:#3DB84F}
+body.tema-escuro .btn-toggle-mapa{border-color:#268A32;color:#3DB84F}
+body.tema-escuro .ia-resultado{background:rgba(38,138,50,.06);border-color:rgba(38,138,50,.14)}
+body.tema-escuro .crescimento-box h4,body.tema-escuro .crescimento-box p{color:#F2F2F2}
+body.tema-escuro .info-cortada{background:#050F1A;border-color:rgba(37,99,235,.2);color:#60A5FA}
+body.tema-escuro .sb-perfil-nome{color:#F2F2F2}
+body.tema-escuro .notif-dropdown-header{color:#F2F2F2}
+body.tema-escuro .modal-titulo{color:#F2F2F2}
+body.tema-escuro .card-title{color:#F2F2F2}
+body.tema-escuro .kpi-num{color:#F2F2F2}
+body.tema-escuro .chart-title{color:#F2F2F2}
+body.tema-escuro .topbar-title{color:#F2F2F2}
+body.tema-escuro .sync-badge{background:#161616;border-color:#222222;color:#555555}
+body.tema-escuro .sb-perfil-btn{color:#F2F2F2}
 
 /* TEMA CLARO — overrides completos */
 body.tema-claro .sidebar{background:#fff;border-color:#DDE5D8}

@@ -339,7 +339,7 @@ export default function App(){
   const [tela,setTela]              =useState("inicio");
   const [registros,setRegistros]    =useState([]);
   const [carregando,setCarregando]  =useState(true);
-  const [tema,setTema]              =useState("escuro");
+  const [tema,setTema]              =useState("claro");
   const [menuPerfil,setMenuPerfil]  =useState(false);
   const [notifAberta,setNotifAberta]=useState(false);
   const [filtroGramas,setFiltroGramas]=useState({});
@@ -366,7 +366,7 @@ export default function App(){
   },[]);
 
   useEffect(()=>{buscar();},[]);
-  useEffect(()=>{document.body.className=tema==="claro"?"tema-claro":"";},[tema]);
+  useEffect(()=>{document.body.className=tema==="escuro"?"tema-escuro":"tema-claro";},[tema]);
 
   useEffect(()=>{
     const h=()=>{setMenuPerfil(false);setNotifAberta(false);};
@@ -1169,9 +1169,21 @@ function Vistoria({salvar,voltar}){
   };
   const handleFoto=async(e)=>{
     const file=e.target.files[0];if(!file) return;
-    const reader=new FileReader();
-    reader.onload=ev=>set("foto",ev.target.result);
-    reader.readAsDataURL(file);
+    // Upload para Supabase Storage
+    const ext=file.name.split(".").pop();
+    const nomeArq=`foto_${Date.now()}.${ext}`;
+    const{data:uploadData,error:uploadError}=await supabase.storage
+      .from("fotos-gramas")
+      .upload(nomeArq,file,{cacheControl:"3600",upsert:false});
+    if(!uploadError&&uploadData){
+      const{data:{publicUrl}}=supabase.storage.from("fotos-gramas").getPublicUrl(nomeArq);
+      set("foto",publicUrl);
+    } else {
+      // fallback base64 se storage falhar
+      const reader=new FileReader();
+      reader.onload=ev=>set("foto",ev.target.result);
+      reader.readAsDataURL(file);
+    }
     setAnalisando(true);setResIA(null);
     try{
       const tmImage=await import('@teachablemachine/image');
