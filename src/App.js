@@ -1,4 +1,211 @@
 /* eslint-disable */
+// ── FORM EDITAR TELA COMPLETA ────────────────────────────────────────────────
+function FormEditarTela({registro,onSalvar,onCancelar,tema}){
+  const bairrosIniciais=registro.bairro?.split("/").map(b=>b.trim()).filter(b=>BAIRROS.includes(b))||[];
+  let geoInicial=null;let pontosIniciais=[];
+  try{
+    if(registro.geometria){
+      geoInicial=typeof registro.geometria==="string"?JSON.parse(registro.geometria):registro.geometria;
+      pontosIniciais=geoInicial?.pontos||[];
+    }
+  }catch(e){}
+  const [form,setForm]=useState({
+    local:registro.local||"",
+    bairros:bairrosIniciais.length>0?bairrosIniciais:[registro.bairro].filter(Boolean),
+    metragem:registro.metragem||"",
+    data:registro.data||"",
+    status:registro.status||"",
+    altura:registro.altura||"",
+    diasCorte:registro.dias_corte||"",
+    obs:registro.obs||"",
+    foto:registro.foto||null,
+    latitude:registro.latitude||null,
+    longitude:registro.longitude||null,
+    geometria:geoInicial,
+  });
+  const [salvando,setSalvando]=useState(false);
+  const [erro,setErro]=useState("");
+  const [mapaAberto,setMapaAberto]=useState(!!(registro.latitude||geoInicial));
+  const [modoDesenho,setModoDesenho]=useState(geoInicial?.tipo||"ponto");
+  const [pontosDesenho,setPontosDesenho]=useState(pontosIniciais);
+  const [coordsMapa,setCoordsMapa]=useState(
+    registro.latitude&&registro.longitude?[Number(registro.latitude),Number(registro.longitude)]:null
+  );
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const handleFoto=async(e)=>{
+    const file=e.target.files[0];if(!file) return;
+    const ext=file.name.split(".").pop();
+    const nomeArq=`foto_${Date.now()}.${ext}`;
+    const{data:uploadData,error:uploadError}=await supabase.storage
+      .from("fotogramas").upload(nomeArq,file,{cacheControl:"3600",upsert:false});
+    if(!uploadError&&uploadData){
+      const{data:{publicUrl}}=supabase.storage.from("fotogramas").getPublicUrl(nomeArq);
+      set("foto",publicUrl);
+    }else{
+      const reader=new FileReader();
+      reader.onload=ev=>set("foto",ev.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+  const handleMapClick=(lat,lng)=>{
+    if(modoDesenho==="ponto"){set("latitude",lat);set("longitude",lng);setCoordsMapa([lat,lng]);set("geometria",null);setPontosDesenho([]);}
+  };
+  const handlePolyClick=(ponto)=>{
+    const novos=[...pontosDesenho,ponto];setPontosDesenho(novos);
+    set("geometria",{tipo:modoDesenho,pontos:novos});
+    set("latitude",novos[0][0]);set("longitude",novos[0][1]);
+  };
+  const limpar=()=>{setPontosDesenho([]);set("geometria",null);set("latitude",null);set("longitude",null);setCoordsMapa(null);};
+  const handleSubmit=async()=>{
+    if(!form.local){setErro("Informe o local.");return;}
+    if(form.bairros.length===0){setErro("Selecione ao menos um bairro.");return;}
+    if(!form.status){setErro("Selecione a classificação.");return;}
+    setErro("");setSalvando(true);
+    await onSalvar({...form,bairro:form.bairros.join(" / ")});
+    setSalvando(false);
+  };
+  const temLoc=form.latitude||form.geometria;
+  const isDark=tema!=="claro";
+  return(
+    <div className="vistoria-completa">
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <button className="btn-voltar-detalhe" onClick={onCancelar}><ArrowLeft size={14}/> Voltar</button>
+      </div>
+      <div className="card vistoria-header">
+        <h2 style={{fontSize:17,fontWeight:800,marginBottom:4,color:"var(--text)"}}>Editar vistoria</h2>
+        <p style={{fontSize:13,color:"var(--text-2)"}}>{registro.local}</p>
+      </div>
+      {erro&&<div className="msg-erro">{erro}</div>}
+      {/* Localização */}
+      <div className="card vistoria-secao">
+        <h3 className="secao-titulo">Localização</h3>
+        <div className="form-group" style={{marginBottom:14}}>
+          <label>Local / Endereço *</label>
+          <input value={form.local} onChange={e=>set("local",e.target.value)} placeholder="Nome ou endereço"/>
+        </div>
+        <div className="form-grid-mobile" style={{marginBottom:14}}>
+          <div className="form-group"><label>Metragem (m²)</label><input type="number" value={form.metragem} onChange={e=>set("metragem",e.target.value)}/></div>
+          <div className="form-group"><label>Data da vistoria</label><input type="date" value={form.data} onChange={e=>set("data",e.target.value)}/></div>
+          <div className="form-group"><label>Altura estimada</label><input value={form.altura} onChange={e=>set("altura",e.target.value)} placeholder="Ex: 25 cm"/></div>
+        </div>
+        <div className="form-group" style={{marginBottom:14}}>
+          <label>Bairros *</label>
+          <BairrosSelect value={form.bairros} onChange={v=>set("bairros",v)}/>
+        </div>
+        {/* Mapa */}
+        <div className="mapa-marcar-wrapper">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+            <div>
+              <p style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:2}}>Localização no mapa <span style={{fontSize:11,fontWeight:500,color:"var(--text-3)"}}>(opcional)</span></p>
+              <p style={{fontSize:11,color:"var(--text-3)"}}>{temLoc?"Local marcado — clique para ajustar":"Marque o local no mapa"}</p>
+            </div>
+            <button className="btn-toggle-mapa" onClick={()=>setMapaAberto(!mapaAberto)}>
+              {mapaAberto?"Fechar mapa ▲":"Abrir mapa ▼"}
+            </button>
+          </div>
+          {temLoc&&(
+            <div className="coord-info">
+              <span>{form.geometria?`✅ ${form.geometria.tipo==="poligono"?"Polígono":"Linha"} com ${pontosDesenho.length} pontos`:"✅ Ponto marcado"}</span>
+              <button className="btn-limpar-coord" onClick={limpar}>Remover</button>
+            </div>
+          )}
+          {mapaAberto&&(
+            <>
+              <div className="draw-toolbar">
+                <span style={{fontSize:10,fontWeight:800,color:"var(--text-3)",textTransform:"uppercase",letterSpacing:".06em"}}>Modo:</span>
+                {[{id:"ponto",icon:"📍",label:"Ponto"},{id:"poligono",icon:"🔷",label:"Polígono"},{id:"linha",icon:"📏",label:"Linha"}].map(m=>(
+                  <button key={m.id} className={`draw-btn ${modoDesenho===m.id?"ativo":""}`} onClick={()=>{setModoDesenho(m.id);limpar();}}>
+                    {m.icon} {m.label}
+                  </button>
+                ))}
+                {pontosDesenho.length>0&&<span style={{fontSize:11,color:"var(--text-3)",marginLeft:4}}>{pontosDesenho.length} ponto(s)</span>}
+              </div>
+              <div className="mapa-marcar">
+                <MapContainer center={coordsMapa||[-23.9608,-46.3336]} zoom={coordsMapa?16:13} style={{height:"100%",width:"100%"}}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap"/>
+                  {coordsMapa&&<MapaFlyTo coords={coordsMapa}/>}
+                  {modoDesenho==="ponto"&&<MapClicker onMark={handleMapClick}/>}
+                  {(modoDesenho==="poligono"||modoDesenho==="linha")&&<PolyDrawer modo={modoDesenho} onAddPonto={handlePolyClick}/>}
+                  {modoDesenho==="ponto"&&form.latitude&&form.longitude&&(
+                    <CircleMarker center={[Number(form.latitude),Number(form.longitude)]} radius={12} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.85,weight:3}}/>
+                  )}
+                  {(modoDesenho==="poligono"||modoDesenho==="linha")&&pontosDesenho.length>0&&(
+                    <>
+                      {pontosDesenho.map((p,i)=><CircleMarker key={i} center={p} radius={6} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:1,weight:2}}/>)}
+                      {pontosDesenho.length>1&&modoDesenho==="poligono"&&<Polygon positions={pontosDesenho} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.2,weight:2,dashArray:"6"}}/>}
+                      {pontosDesenho.length>1&&modoDesenho==="linha"&&<Polyline positions={pontosDesenho} pathOptions={{color:"#1C7A2C",weight:3,dashArray:"8"}}/>}
+                    </>
+                  )}
+                </MapContainer>
+              </div>
+              <p className="mapa-instrucao">
+                {modoDesenho==="ponto"&&"Clique no mapa para marcar o local exato"}
+                {modoDesenho==="poligono"&&"Clique para adicionar vértices do polígono"}
+                {modoDesenho==="linha"&&"Clique para traçar uma linha"}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+      {/* Foto */}
+      <div className="card vistoria-secao">
+        <h3 className="secao-titulo">Foto</h3>
+        <div className="upload-area">
+          <label className="upload-label">
+            <input type="file" accept="image/*" onChange={handleFoto} style={{display:"none"}}/>
+            {!form.foto?(
+              <div className="upload-placeholder">
+                <div className="upload-icon">📸</div>
+                <p style={{fontSize:14,fontWeight:700,marginBottom:4,color:"var(--text)"}}>Clique para enviar foto</p>
+                <p style={{fontSize:12,color:"var(--text-3)"}}>JPG, PNG até 10MB</p>
+              </div>
+            ):(
+              <div className="upload-preview">
+                <img src={form.foto} alt="preview"/>
+                <div className="upload-trocar">🔄 Clique para trocar a foto</div>
+              </div>
+            )}
+          </label>
+          {form.foto&&<button onClick={()=>set("foto",null)} style={{fontSize:12,color:"var(--red-t)",background:"transparent",border:"none",cursor:"pointer",marginTop:6,fontWeight:600}}>Remover foto</button>}
+        </div>
+      </div>
+      {/* Classificação */}
+      <div className="card vistoria-secao">
+        <h3 className="secao-titulo">Classificação da Grama</h3>
+        <div className="status-btns">
+          {Object.entries(STATUS).map(([key,cfg])=>(
+            <button key={key} type="button"
+              className={`status-btn ${form.status===key?"selecionado":""}`}
+              style={form.status===key?{background:cfg.bgDark,borderColor:cfg.cor,color:cfg.txtDark,border:`1px solid ${cfg.cor}`}:{}}
+              onClick={()=>{set("status",key);set("diasCorte",cfg.dias);}}>
+              <span style={{marginBottom:6,display:"flex",justifyContent:"center"}}><StatusDot statusKey={key} size={18}/></span>
+              <strong>{cfg.label}</strong>
+              <span style={{display:"block",fontSize:10,opacity:.6,marginTop:2}}>{cfg.dias}d p/ corte</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Detalhes */}
+      <div className="card vistoria-secao">
+        <h3 className="secao-titulo">Detalhes adicionais</h3>
+        <div className="form-grid">
+          <div className="form-group full"><label>Dias até o próximo corte</label><input type="number" value={form.diasCorte} onChange={e=>set("diasCorte",e.target.value)}/></div>
+          <div className="form-group full"><label>Observações</label><textarea value={form.obs} onChange={e=>set("obs",e.target.value)}/></div>
+        </div>
+      </div>
+      <div className="vistoria-acoes">
+        <button className="btn-voltar" onClick={onCancelar}>Cancelar</button>
+        <button className="btn-salvar" onClick={handleSubmit} disabled={salvando}
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
+          {salvando?<><Loader2 size={14} style={{animation:"spin 1s linear infinite"}}/> Salvando...</>:"Salvar alterações"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* eslint-disable */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { gerarPDFGeral, gerarPDFIndividual } from "./pdf";
 import { supabase } from "./supabase";
@@ -13,7 +220,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
 import {
-  MapContainer, TileLayer, CircleMarker, Polygon, Polyline, Popup, useMapEvents, useMap
+  MapContainer, TileLayer, CircleMarker, Polygon, Polyline, Popup, Tooltip as LeafletTooltip, useMapEvents, useMap
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -127,18 +334,27 @@ const KPI_ITEMS=[
 
 function statusEfetivo(r){
   try{
-    const diasDesde=Math.floor((new Date()-new Date(r.data+"T12:00:00"))/86400000);
-    const diasCorte=Number(r.dias_corte)||21;
-    // Só vira crítico se dias_corte foi definido e passou do prazo
-    if(Number.isFinite(diasDesde)&&diasDesde>diasCorte&&diasCorte>0&&r.status!=="cortada"&&r.status!=="critico"){
-      return "critico";
-    }
-    if(r.status_calculado&&r.status_calculado!=="atrasada") return r.status_calculado;
+    const hoje=new Date();
+    // Usa r.data (data da vistoria/corte) como referência — mais precisa que criado_em
+    const dataRef=r.data ? new Date(r.data+"T12:00:00") : new Date(r.criado_em);
+    const diasDesde=Math.floor((hoje-dataRef)/86400000);
+    if(!Number.isFinite(diasDesde)||diasDesde<0) return r.status||"media";
+
     if(r.status==="cortada"){
-      const dias=Math.floor((new Date()-new Date(r.criado_em||r.data))/86400000);
-      if(Number.isFinite(dias)&&dias>=2) return "baixa";
+      // Evolução pós-corte: cortada → curta → media → alta → critico
+      if(diasDesde<2)  return "cortada";   // 0-1 dias: recém cortada
+      if(diasDesde<8)  return "baixa";     // 2-7 dias: grama curta
+      if(diasDesde<16) return "media";     // 8-15 dias: média
+      if(diasDesde<25) return "alta";      // 16-24 dias: alta
+      return "critico";                    // 25+ dias: crítico
     }
-    return r.status||"media";
+
+    // Para qualquer outro status: verifica se passou do prazo de corte
+    const diasCorte=Number(r.dias_corte)||30;
+    const atraso=diasDesde-diasCorte;  // positivo = passou do prazo
+    if(atraso>=7)  return "critico";   // atrasado >= 7 dias → crítico
+    if(atraso>=0)  return "alta";      // passou do prazo → alta
+    return r.status||"media";          // dentro do prazo → mantém status original
   }catch(e){return r.status||"media";}
 }
 
@@ -279,34 +495,75 @@ function BairrosSelect({value,onChange,placeholder="Digite para buscar bairros..
   const [texto,setTexto]=useState("");
   const [aberto,setAberto]=useState(false);
   const ref=useRef(null);
+  const inputRef=useRef(null);
+
   useEffect(()=>{
-    const h=(e)=>{if(ref.current&&!ref.current.contains(e.target)) setAberto(false);};
+    const h=(e)=>{
+      if(ref.current&&!ref.current.contains(e.target)){
+        setAberto(false);setTexto("");
+      }
+    };
     document.addEventListener("mousedown",h);
     return()=>document.removeEventListener("mousedown",h);
   },[]);
-  const filtrados=BAIRROS.filter(b=>b.toLowerCase().includes(texto.toLowerCase())&&!value.includes(b)).slice(0,25);
+
+  // Filtra os bairros que ainda não foram selecionados, com base no texto digitado
+  const filtrados=BAIRROS.filter(b=>
+    b.toLowerCase().includes(texto.toLowerCase())&&!value.includes(b)
+  );
+
   const toggle=(b)=>{
     if(value.includes(b)) onChange(value.filter(x=>x!==b));
     else onChange([...value,b]);
+    setTexto("");
+    // mantém dropdown aberto e re-foca o input para adicionar mais
+    setTimeout(()=>inputRef.current?.focus(),0);
   };
+
+  const handleKeyDown=(e)=>{
+    if(e.key==="Backspace"&&texto===""&&value.length>0){
+      // Backspace remove o último bairro selecionado
+      onChange(value.slice(0,-1));
+    }
+    if(e.key==="Enter"&&filtrados.length>0){
+      e.preventDefault();toggle(filtrados[0]);
+    }
+    if(e.key==="Escape"){setAberto(false);setTexto("");}
+  };
+
   return(
     <div className="bairros-select-wrap" ref={ref}>
-      <div className="bairros-tags" onClick={()=>setAberto(true)}>
+      <div className="bairros-tags"
+        onClick={()=>{setAberto(true);inputRef.current?.focus();}}>
         {value.map(b=>(
           <span key={b} className="bairro-tag">
             {b}
             <button onClick={e=>{e.stopPropagation();toggle(b);}}><X size={11}/></button>
           </span>
         ))}
-        <input className="bairros-tags-input" value={texto}
+        <input
+          ref={inputRef}
+          className="bairros-tags-input"
+          value={texto}
           onChange={e=>{setTexto(e.target.value);setAberto(true);}}
           onFocus={()=>setAberto(true)}
-          placeholder={value.length===0?placeholder:"Adicionar bairro..."}/>
+          onKeyDown={handleKeyDown}
+          placeholder={value.length===0?placeholder:"Adicionar bairro..."}
+          autoComplete="off"
+        />
       </div>
       {aberto&&(
         <div className="busca-endereco-dropdown">
-          {filtrados.map((b,i)=>(
-            <div key={i} className="busca-endereco-option" onClick={()=>{toggle(b);setTexto("");setAberto(false);}}>
+          {filtrados.length===0?(
+            <div className="busca-endereco-option" style={{cursor:"default",opacity:.55,pointerEvents:"none"}}>
+              <div>
+                <p className="busca-endereco-principal">
+                  {texto?"Nenhum bairro encontrado":"Todos os bairros já selecionados"}
+                </p>
+              </div>
+            </div>
+          ):filtrados.map((b,i)=>(
+            <div key={i} className="busca-endereco-option" onClick={()=>toggle(b)}>
               <div>
                 <p className="busca-endereco-principal">{b}</p>
                 <p className="busca-endereco-secundario">Santos, SP</p>
@@ -352,6 +609,7 @@ export default function App(){
   const [notifAberta,setNotifAberta]=useState(false);
   const [filtroGramas,setFiltroGramas]=useState({});
   const [localFoco,setLocalFoco]    =useState(null);
+  const [navKeys,setNavKeys]        =useState({});
   const [toast,setToast]            =useState(null);
   const [session,setSession]        =useState(null);
   const [authLoading,setAuthLoading]=useState(true);
@@ -389,7 +647,7 @@ export default function App(){
       metragem:form.metragem?Number(form.metragem):null,
       data:form.data,status:form.status,altura:form.altura,
       dias_corte:form.diasCorte?Number(form.diasCorte):null,
-      obs:form.obs,foto:form.foto||null,empresa:form.empresa||null,
+      obs:form.obs,foto:form.foto||null,
       latitude:form.latitude||null,longitude:form.longitude||null,
       geometria:form.geometria?JSON.stringify(form.geometria):null,
     }]);
@@ -405,7 +663,7 @@ export default function App(){
       metragem:form.metragem?Number(form.metragem):null,
       data:form.data,status:form.status,altura:form.altura,
       dias_corte:form.diasCorte?Number(form.diasCorte):null,
-      obs:form.obs,foto:form.foto||null,empresa:form.empresa||null,
+      obs:form.obs,foto:form.foto||null,
       latitude:form.latitude||null,longitude:form.longitude||null,
       geometria:form.geometria?JSON.stringify(form.geometria):null,
     }).eq("id",id);
@@ -477,7 +735,12 @@ export default function App(){
           <div className="nav-section">Menu Principal</div>
           {NAV_PRINCIPAL.map(({id,Icon,label,badge})=>(
             <button key={id} className={`nav-item ${tela===id?"active":""}`}
-              onClick={e=>{e.stopPropagation();if(id==="gramas"){setFiltroGramas({});setLocalFoco(null);}setTela(id);setNotifAberta(false);setMenuPerfil(false);}}>
+              onClick={e=>{
+                e.stopPropagation();
+                if(id==="gramas"){setFiltroGramas({});setLocalFoco(null);}
+                setNavKeys(k=>({...k,[id]:(k[id]||0)+1}));
+                setTela(id);setNotifAberta(false);setMenuPerfil(false);
+              }}>
               <span className="nav-icon"><Icon size={17}/></span>
               <span>{label}</span>
               {badge>0&&<span className="nav-badge">{badge}</span>}
@@ -486,7 +749,12 @@ export default function App(){
           <div className="nav-section">Registros</div>
           {NAV_REGISTROS.map(({id,Icon,label,badge})=>(
             <button key={id} className={`nav-item ${tela===id?"active":""}`}
-              onClick={e=>{e.stopPropagation();if(id==="gramas"){setFiltroGramas({});setLocalFoco(null);}setTela(id);setNotifAberta(false);setMenuPerfil(false);}}>
+              onClick={e=>{
+                e.stopPropagation();
+                if(id==="gramas"){setFiltroGramas({});setLocalFoco(null);}
+                setNavKeys(k=>({...k,[id]:(k[id]||0)+1}));
+                setTela(id);setNotifAberta(false);setMenuPerfil(false);
+              }}>
               <span className="nav-icon"><Icon size={17}/></span>
               <span>{label}</span>
               {badge>0&&<span className="nav-badge">{badge}</span>}
@@ -599,8 +867,8 @@ export default function App(){
         </header>
 
         <div className="content">
-          {tela==="inicio"       &&<Inicio registros={registros} irGramas={irGramas} notificacoes={notifVisiveis} tema={tema} irParaLocal={irParaLocal}/>}
-          {tela==="gramas"       &&<Gramas registros={registros} filtroInicial={filtroGramas} localFoco={localFoco} setLocalFoco={setLocalFoco} registrarCorte={registrarCorte} atualizar={atualizar} deletar={deletar} showToast={showToast} tema={tema}/>}
+          {tela==="inicio"       &&<Inicio key={navKeys.inicio||0} registros={registros} irGramas={irGramas} notificacoes={notifVisiveis} tema={tema} irParaLocal={irParaLocal}/>}
+          {tela==="gramas"       &&<Gramas key={JSON.stringify(filtroGramas)+(navKeys.gramas||0)} registros={registros} filtroInicial={filtroGramas} localFoco={localFoco} setLocalFoco={setLocalFoco} registrarCorte={registrarCorte} atualizar={atualizar} deletar={deletar} showToast={showToast} tema={tema}/>}
           {tela==="vistoria"     &&<Vistoria salvar={salvar} voltar={()=>setTela("inicio")}/>}
           {tela==="mapa"         &&<Mapa registros={registros} irParaLocal={irParaLocal}/>}
           {tela==="historico"    &&<Historico registros={registros} irParaLocal={irParaLocal} tema={tema}/>}
@@ -655,6 +923,7 @@ function Login({onLogin}){
 // ── INÍCIO ────────────────────────────────────────────────────────────────────
 function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
   const [verMais,setVerMais]=useState(false);
+  const [bairroFurado,setBairroFurado]=useState(null);
   const regs=registros.map(r=>({...r,statusReal:statusEfetivo(r)}));
   const counts={
     alta:regs.filter(r=>r.statusReal==="alta").length,
@@ -663,13 +932,19 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
     cortada:regs.filter(r=>r.statusReal==="cortada").length,
     critico:regs.filter(r=>r.statusReal==="critico").length,
   };
-  const urgentes=notificacoes.filter(n=>["critico","atrasado"].includes(n.tipo));
+  const urgentes=notificacoes.filter(n=>n.tipo==="critico");
   const bairrosMap={};
   regs.forEach(r=>{
     if(!bairrosMap[r.bairro]) bairrosMap[r.bairro]={bairro:r.bairro,critico:0,alta:0,media:0,baixa:0,cortada:0};
     bairrosMap[r.bairro][r.statusReal]=(bairrosMap[r.bairro][r.statusReal]||0)+1;
   });
   const barData=Object.values(bairrosMap).sort((a,b)=>(b.critico+b.alta)-(a.critico+a.alta));
+  const ORD_STATUS={critico:0,alta:1,media:2,baixa:3,cortada:4};
+  const localData=bairroFurado
+    ?regs.filter(r=>r.bairro===bairroFurado)
+        .map(r=>({local:r.local,total:1,statusKey:r.statusReal,_reg:r}))
+        .sort((a,b)=>(ORD_STATUS[a.statusKey]||5)-(ORD_STATUS[b.statusKey]||5))
+    :[];
   const roscaData=Object.entries(
     regs.reduce((acc,r)=>{acc[r.statusReal]=(acc[r.statusReal]||0)+1;return acc;},{})
   ).map(([k,v])=>({name:STATUS[k]?.label||k,value:v,cor:STATUS[k]?.cor||"#999"}));
@@ -779,30 +1054,90 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
           </div>
           <div className="chart-card">
             <div className="chart-head">
-              <div><div className="chart-title">Situação por bairro</div><div className="chart-sub">Ordenado por criticidade — maior urgência no topo</div></div>
-              <div className="chart-badge">{barData.length} bairro(s)</div>
+              {bairroFurado?(
+                <div style={{display:"flex",alignItems:"center",gap:8,flex:1,flexWrap:"wrap"}}>
+                  <button onClick={()=>setBairroFurado(null)}
+                    style={{background:"var(--bg-soft)",border:"1px solid var(--border-med)",borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:"var(--text-2)",display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                    <ArrowLeft size={12}/> Bairros
+                  </button>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div className="chart-title">📍 {bairroFurado}</div>
+                    <div className="chart-sub">Clique num local para ver detalhes</div>
+                  </div>
+                  <div className="chart-badge" style={{marginLeft:"auto"}}>{localData.length} local(is)</div>
+                </div>
+              ):(
+                <>
+                  <div><div className="chart-title">Situação por bairro</div><div className="chart-sub">Clique no nome ou na barra para ver os locais dentro</div></div>
+                  <div className="chart-badge">{barData.length} bairro(s)</div>
+                </>
+              )}
             </div>
             <div className="bar-chart-scroll">
-              <p style={{fontSize:11,color:"var(--text-3)",marginBottom:8}}>💡 Clique em um bairro para ver os locais</p>
-              <ResponsiveContainer width="100%" height={Math.min(500,Math.max(240,barData.length*28+48))}>
-                <BarChart data={barData} layout="vertical" barSize={13} margin={{top:4,right:24,left:0,bottom:4}}
-                  onClick={(d)=>{if(d&&d.activePayload) irGramas({bairro:d.activePayload[0]?.payload?.bairro});}}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridC} horizontal={false}/>
-                  <XAxis type="number" tick={{fontSize:10,fill:isDark?"#555":"#4A5E40"}} allowDecimals={false} axisLine={false} tickLine={false}/>
-                  <YAxis type="category" dataKey="bairro" width={148} tick={{fontSize:11,fill:isDark?"#888":"#4A5E40",fontWeight:600}} axisLine={false} tickLine={false} cursor="pointer"/>
-                  <Tooltip contentStyle={tip} cursor={{fill:isDark?"rgba(255,255,255,.06)":"rgba(0,0,0,.06)"}} formatter={(v,n)=>[v,n]}/>
-                  <Bar dataKey="critico" name="Crítico" stackId="a" fill="#E53935"/>
-                  <Bar dataKey="alta" name="Alta" stackId="a" fill="#F57C00"/>
-                  <Bar dataKey="media" name="Média" stackId="a" fill="#F9A825"/>
-                  <Bar dataKey="baixa" name="Curta" stackId="a" fill="#2E7D32"/>
-                  <Bar dataKey="cortada" name="Cortada" stackId="a" fill="#1565C0" radius={[0,6,6,0]}/>
-                </BarChart>
-              </ResponsiveContainer>
+              {bairroFurado?(
+                /* ── DRILL-DOWN: locais do bairro ── */
+                <ResponsiveContainer width="100%" height={Math.min(540,Math.max(200,localData.length*32+48))}>
+                  <BarChart data={localData} layout="vertical" barSize={16} margin={{top:4,right:24,left:0,bottom:4}}
+                    onClick={(d)=>{if(d&&d.activePayload){const e=d.activePayload[0]?.payload;if(e?._reg) irParaLocal(e._reg);}}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridC} horizontal={false}/>
+                    <XAxis type="number" domain={[0,1]} hide/>
+                    <YAxis type="category" dataKey="local" width={152} axisLine={false} tickLine={false}
+                      tick={({x,y,payload,index})=>{
+                        const entry=localData[index];
+                        const cor=STATUS[entry?.statusKey]?.cor||(isDark?"#888":"#4A5E40");
+                        return(
+                          <text x={x-6} y={y} dy={4} textAnchor="end"
+                            fill={cor} fontSize={11} fontWeight={700}
+                            style={{cursor:"pointer"}}
+                            onClick={()=>{if(entry?._reg) irParaLocal(entry._reg);}}>
+                            {payload.value.length>22?payload.value.substring(0,20)+"…":payload.value}
+                          </text>
+                        );
+                      }}
+                    />
+                    <Tooltip contentStyle={tip} cursor={{fill:isDark?"rgba(255,255,255,.06)":"rgba(0,0,0,.06)"}}
+                      formatter={(_,__,props)=>[STATUS[props.payload?.statusKey]?.label||"—","Status"]}/>
+                    <Bar dataKey="total" radius={[0,6,6,0]}>
+                      {localData.map((e,i)=><Cell key={i} fill={STATUS[e.statusKey]?.cor||"#999"}/>)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ):(
+                /* ── NÍVEL BAIRROS ── */
+                <ResponsiveContainer width="100%" height={Math.min(540,Math.max(240,barData.length*32+48))}>
+                  <BarChart data={barData} layout="vertical" barSize={16} margin={{top:4,right:24,left:0,bottom:4}}
+                    onClick={(d)=>{if(d&&d.activePayload){const b=d.activePayload[0]?.payload;if(b) setBairroFurado(b.bairro);}}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridC} horizontal={false}/>
+                    <XAxis type="number" tick={{fontSize:10,fill:isDark?"#555":"#4A5E40"}} allowDecimals={false} axisLine={false} tickLine={false}/>
+                    <YAxis type="category" dataKey="bairro" width={152} axisLine={false} tickLine={false}
+                      tick={({x,y,payload})=>(
+                        <text x={x-6} y={y} dy={4} textAnchor="end"
+                          fill={isDark?"#81C784":"#1C7A2C"} fontSize={11} fontWeight={700}
+                          style={{cursor:"pointer",textDecoration:"underline dotted"}}
+                          onClick={()=>setBairroFurado(payload.value)}>
+                          {payload.value.length>20?payload.value.substring(0,18)+"…":payload.value}
+                        </text>
+                      )}
+                    />
+                    <Tooltip contentStyle={tip} cursor={{fill:isDark?"rgba(255,255,255,.06)":"rgba(0,0,0,.06)"}} formatter={(v,n)=>[v,n]}/>
+                    <Bar dataKey="critico" name="Crítico" stackId="a" fill="#E53935"/>
+                    <Bar dataKey="alta" name="Alta" stackId="a" fill="#F57C00"/>
+                    <Bar dataKey="media" name="Média" stackId="a" fill="#F9A825"/>
+                    <Bar dataKey="baixa" name="Curta" stackId="a" fill="#2E7D32"/>
+                    <Bar dataKey="cortada" name="Cortada" stackId="a" fill="#1565C0" radius={[0,6,6,0]}/>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
             <div className="chart-leg">
-              {[["#E53935","Crítico"],["#F57C00","Alta"],["#F9A825","Média"],["#2E7D32","Curta"],["#1565C0","Cortada"]].map(([c,l])=>(
-                <div key={l} className="leg-item"><div className="leg-dot" style={{background:c}}/><span>{l}</span></div>
-              ))}
+              {bairroFurado
+                ?[...new Set(localData.map(d=>d.statusKey))].sort((a,b)=>(ORD_STATUS[a]||5)-(ORD_STATUS[b]||5)).map(k=>(
+                    <div key={k} className="leg-item"><div className="leg-dot" style={{background:STATUS[k]?.cor}}/><span>{STATUS[k]?.label}</span></div>
+                  ))
+                :[["#E53935","Crítico"],["#F57C00","Alta"],["#F9A825","Média"],["#2E7D32","Curta"],["#1565C0","Cortada"]].map(([c,l])=>(
+                    <div key={l} className="leg-item"><div className="leg-dot" style={{background:c}}/><span>{l}</span></div>
+                  ))
+              }
             </div>
           </div>
         </>
@@ -839,7 +1174,8 @@ function Mapa({registros,irParaLocal}){
         <div style={{minWidth:180,fontFamily:"inherit"}}>
           <p style={{fontWeight:700,fontSize:14,marginBottom:4}}>{r.local}</p>
           <p style={{fontSize:12,color:"#666",marginBottom:6}}>📍 {r.bairro}</p>
-          <p style={{fontSize:12}}><><StatusDot statusKey={status}/> {cfg.label}</></p>
+          <p style={{fontSize:12}}><StatusDot statusKey={status} size={10}/> {cfg.label}</p>
+          {r.metragem&&<p style={{fontSize:12,color:"#666",marginTop:3}}>📐 {r.metragem}m²</p>}
           <button onClick={()=>irParaLocal(r)} style={{marginTop:8,width:"100%",padding:"6px 10px",background:"#1C7A2C",color:"#fff",border:"none",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700}}>Ver detalhes →</button>
         </div>
       </Popup>
@@ -876,7 +1212,7 @@ function Mapa({registros,irParaLocal}){
                   <div style={{minWidth:180,fontFamily:"inherit"}}>
                     <p style={{fontWeight:700,fontSize:14,marginBottom:4}}>{r.local}</p>
                     <p style={{fontSize:12,color:"#666",marginBottom:6}}>📍 {r.bairro}</p>
-                    <p style={{fontSize:12,marginBottom:4}}><><StatusDot statusKey={status}/> {cfg.label}</></p>
+                    <p style={{fontSize:12,marginBottom:3}}><StatusDot statusKey={status} size={10}/> {cfg.label}</p>
                     {r.metragem&&<p style={{fontSize:12,color:"#666"}}>📐 {r.metragem}m²</p>}
                     <button onClick={()=>irParaLocal(r)} style={{marginTop:8,width:"100%",padding:"6px 10px",background:"#1C7A2C",color:"#fff",border:"none",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:700}}>Ver detalhes →</button>
                   </div>
@@ -903,7 +1239,8 @@ function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,a
   useEffect(()=>{setFiltro(filtroInicial?.status||"");setFiltroB(filtroInicial?.bairro||"");setFiltroNome("");},[filtroInicial]);
   useEffect(()=>{if(localFoco){setSel(localFoco);setLocalFoco(null);}},[localFoco,setLocalFoco]);
 
-  if(sel&&!editando&&!excluindo) return <Detalhe registro={sel} voltar={()=>setSel(null)} registrarCorte={registrarCorte} atualizar={atualizar} tema={tema}/>;
+  if(editando) return <FormEditarTela registro={editando} onSalvar={async(form)=>{const ok=await atualizar(editando.id,form);if(ok)setEditando(null);}} onCancelar={()=>setEditando(null)} tema={tema}/>;
+  if(sel&&!excluindo) return <Detalhe registro={sel} voltar={()=>setSel(null)} registrarCorte={registrarCorte} atualizar={atualizar} tema={tema}/>;
 
   const lista=registros
     .filter(r=>!filtro||statusEfetivo(r)===filtro)
@@ -969,15 +1306,7 @@ function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,a
         </div>
       }
 
-      {editando&&(
-        <Modal titulo="Editar vistoria" onClose={()=>setEditando(null)}>
-          <FormEditar
-            registro={editando}
-            onSalvar={async(form)=>{const ok=await atualizar(editando.id,form);if(ok)setEditando(null);}}
-            onCancelar={()=>setEditando(null)}
-          />
-        </Modal>
-      )}
+
       {excluindo&&(
         <Modal titulo="Remover vistoria" onClose={()=>setExcluindo(null)}>
           <p style={{fontSize:14,color:"var(--text-2)",lineHeight:1.7,marginBottom:8}}>
@@ -993,8 +1322,19 @@ function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,a
   );
 }
 
-function FormEditar({registro,onSalvar,onCancelar}){
-  const bairrosIniciais=registro.bairro.split("/").map(b=>b.trim()).filter(b=>BAIRROS.includes(b));
+// FormEditar foi substituído por FormEditarTela (formulário completo com status, mapa e foto)
+function FormEditar_UNUSED({registro,onSalvar,onCancelar}){
+  const bairrosIniciais=registro.bairro?.split("/").map(b=>b.trim()).filter(b=>BAIRROS.includes(b))||[];
+  // Parse geometria com segurança
+  let geoInicial=null;
+  let pontosIniciais=[];
+  try{
+    if(registro.geometria){
+      geoInicial=typeof registro.geometria==="string"?JSON.parse(registro.geometria):registro.geometria;
+      pontosIniciais=geoInicial?.pontos||[];
+    }
+  }catch(e){}
+
   const [form,setForm]=useState({
     local:registro.local||"",
     bairros:bairrosIniciais.length>0?bairrosIniciais:[registro.bairro].filter(Boolean),
@@ -1008,17 +1348,14 @@ function FormEditar({registro,onSalvar,onCancelar}){
     empresa:registro.empresa||"",
     latitude:registro.latitude||null,
     longitude:registro.longitude||null,
-    geometria:registro.geometria?JSON.parse(registro.geometria):null,
+    geometria:geoInicial,
   });
   const [salvando,setSalvando]=useState(false);
-  const [analisando,setAnalisando]=useState(false);
-  const [mapaAberto,setMapaAberto]=useState(false);
-  const [modoDesenho,setModoDesenho]=useState("ponto");
-  const [pontosDesenho,setPontosDesenho]=useState(
-    registro.geometria?JSON.parse(registro.geometria)?.pontos||[]:[]
-  );
+  const [mapaAberto,setMapaAberto]=useState(!!(registro.latitude||geoInicial));
+  const [modoDesenho,setModoDesenho]=useState(geoInicial?.tipo||"ponto");
+  const [pontosDesenho,setPontosDesenho]=useState(pontosIniciais);
   const [coordsMapa,setCoordsMapa]=useState(
-    registro.latitude&&registro.longitude?[registro.latitude,registro.longitude]:null
+    registro.latitude&&registro.longitude?[Number(registro.latitude),Number(registro.longitude)]:null
   );
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
 
@@ -1031,7 +1368,7 @@ function FormEditar({registro,onSalvar,onCancelar}){
     if(!uploadError&&uploadData){
       const{data:{publicUrl}}=supabase.storage.from("fotogramas").getPublicUrl(nomeArq);
       set("foto",publicUrl);
-    } else {
+    }else{
       const reader=new FileReader();
       reader.onload=ev=>set("foto",ev.target.result);
       reader.readAsDataURL(file);
@@ -1039,7 +1376,10 @@ function FormEditar({registro,onSalvar,onCancelar}){
   };
 
   const handleMapClickEditar=(lat,lng)=>{
-    if(modoDesenho==="ponto"){set("latitude",lat);set("longitude",lng);setCoordsMapa([lat,lng]);set("geometria",null);setPontosDesenho([]);}
+    if(modoDesenho==="ponto"){
+      set("latitude",lat);set("longitude",lng);
+      setCoordsMapa([lat,lng]);set("geometria",null);setPontosDesenho([]);
+    }
   };
   const handlePolyClickEditar=(ponto)=>{
     const novos=[...pontosDesenho,ponto];
@@ -1047,7 +1387,10 @@ function FormEditar({registro,onSalvar,onCancelar}){
     set("geometria",{tipo:modoDesenho,pontos:novos});
     set("latitude",novos[0][0]);set("longitude",novos[0][1]);
   };
-  const limparDesenhoEditar=()=>{setPontosDesenho([]);set("geometria",null);set("latitude",null);set("longitude",null);setCoordsMapa(null);};
+  const limparEditar=()=>{
+    setPontosDesenho([]);set("geometria",null);
+    set("latitude",null);set("longitude",null);setCoordsMapa(null);
+  };
 
   const handleSubmit=async()=>{
     if(!form.local||form.bairros.length===0||!form.status) return;
@@ -1055,9 +1398,12 @@ function FormEditar({registro,onSalvar,onCancelar}){
     await onSalvar({...form,bairro:form.bairros.join(" / ")});
     setSalvando(false);
   };
+
   const temLoc=form.latitude||form.geometria;
+
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {/* Campos básicos */}
       <div className="form-grid">
         <div className="form-group"><label>Local / Endereço</label><input value={form.local} onChange={e=>set("local",e.target.value)}/></div>
         <div className="form-group"><label>Metragem (m²)</label><input type="number" value={form.metragem} onChange={e=>set("metragem",e.target.value)}/></div>
@@ -1075,72 +1421,88 @@ function FormEditar({registro,onSalvar,onCancelar}){
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
         </div>
+      </div>
+      <div className="form-grid">
+        <div className="form-group"><label>Altura estimada</label><input placeholder="Ex: 25 cm" value={form.altura} onChange={e=>set("altura",e.target.value)}/></div>
         <div className="form-group"><label>Dias p/ corte</label><input type="number" value={form.diasCorte} onChange={e=>set("diasCorte",e.target.value)}/></div>
       </div>
-      <div className="form-group"><label>Altura estimada</label><input placeholder="Ex: 25 cm" value={form.altura} onChange={e=>set("altura",e.target.value)}/></div>
-      <div className="form-group"><label>Empresa (opcional)</label><input placeholder="Nome da empresa responsável" value={form.empresa} onChange={e=>set("empresa",e.target.value)}/></div>
+      <div className="form-group"><label>Empresa <span style={{fontWeight:400,fontSize:10}}>(opcional)</span></label><input placeholder="Empresa responsável" value={form.empresa} onChange={e=>set("empresa",e.target.value)}/></div>
       <div className="form-group"><label>Observações</label><textarea value={form.obs} onChange={e=>set("obs",e.target.value)}/></div>
+
       {/* Foto */}
       <div className="form-group">
         <label>Foto</label>
-        <label className="upload-label" style={{cursor:"pointer"}}>
+        <label style={{cursor:"pointer",display:"block"}}>
           <input type="file" accept="image/*" onChange={handleFotoEditar} style={{display:"none"}}/>
-          {!form.foto?(
-            <div className="upload-placeholder" style={{padding:"16px",textAlign:"center"}}>
-              <p style={{fontSize:13,color:"var(--text-2)"}}>📸 Clique para adicionar foto</p>
-            </div>
-          ):(
+          {form.foto?(
             <div className="upload-preview">
               <img src={form.foto} alt="preview"/>
-              <div className="upload-trocar">🔄 Trocar foto</div>
+              <div className="upload-trocar">🔄 Clique para trocar</div>
+            </div>
+          ):(
+            <div className="upload-placeholder" style={{padding:"14px",textAlign:"center"}}>
+              <p style={{fontSize:13,color:"var(--text-2)"}}>📸 Adicionar foto</p>
             </div>
           )}
         </label>
-        {form.foto&&<button onClick={()=>set("foto",null)} style={{fontSize:11,color:"var(--red-t)",background:"transparent",border:"none",cursor:"pointer",marginTop:4,fontWeight:600}}>Remover foto</button>}
+        {form.foto&&<button onClick={()=>set("foto",null)} style={{fontSize:11,color:"var(--red-t)",background:"transparent",border:"none",cursor:"pointer",marginTop:4,fontWeight:600,textAlign:"left"}}>Remover foto</button>}
       </div>
+
       {/* Mapa */}
       <div className="form-group">
-        <label>Localização no mapa</label>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-          <span style={{fontSize:11,color:"var(--text-3)"}}>{temLoc?"Local marcado":"Sem localização"}</span>
+          <label style={{marginBottom:0}}>Localização no mapa</label>
           <button className="btn-toggle-mapa" onClick={()=>setMapaAberto(!mapaAberto)}>
             {mapaAberto?"Fechar ▲":"Abrir mapa ▼"}
           </button>
         </div>
         {temLoc&&(
           <div className="coord-info" style={{marginBottom:8}}>
-            <span>{form.geometria?`✅ ${form.geometria.tipo==="poligono"?"Polígono":"Linha"} com ${pontosDesenho.length} pontos`:"✅ Ponto marcado"}</span>
-            <button className="btn-limpar-coord" onClick={limparDesenhoEditar}>Remover</button>
+            <span>{form.geometria?`✅ ${form.geometria.tipo==="poligono"?"Polígono":"Linha"} (${pontosDesenho.length} pontos)`:"✅ Ponto marcado"}</span>
+            <button className="btn-limpar-coord" onClick={limparEditar}>Remover</button>
           </div>
         )}
         {mapaAberto&&(
           <>
             <div className="draw-toolbar">
+              <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",textTransform:"uppercase"}}>Modo:</span>
               {[{id:"ponto",icon:"📍",label:"Ponto"},{id:"poligono",icon:"🔷",label:"Polígono"},{id:"linha",icon:"📏",label:"Linha"}].map(m=>(
-                <button key={m.id} className={`draw-btn ${modoDesenho===m.id?"ativo":""}`} onClick={()=>{setModoDesenho(m.id);limparDesenhoEditar();}}>
+                <button key={m.id} className={`draw-btn ${modoDesenho===m.id?"ativo":""}`}
+                  onClick={()=>{setModoDesenho(m.id);limparEditar();}}>
                   {m.icon} {m.label}
                 </button>
               ))}
             </div>
-            <div className="mapa-marcar">
-              <MapContainer center={coordsMapa||[-23.9608,-46.3336]} zoom={coordsMapa?17:13} style={{height:"100%",width:"100%"}}>
+            <div style={{height:280,borderRadius:9,overflow:"hidden",border:"1px solid var(--border-med)",marginTop:6}}>
+              <MapContainer center={coordsMapa||[-23.9608,-46.3336]} zoom={coordsMapa?16:13} style={{height:"100%",width:"100%"}}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap"/>
                 {coordsMapa&&<MapaFlyTo coords={coordsMapa}/>}
                 {modoDesenho==="ponto"&&<MapClicker onMark={handleMapClickEditar}/>}
                 {(modoDesenho==="poligono"||modoDesenho==="linha")&&<PolyDrawer modo={modoDesenho} onAddPonto={handlePolyClickEditar}/>}
                 {modoDesenho==="ponto"&&form.latitude&&form.longitude&&(
-                  <CircleMarker center={[form.latitude,form.longitude]} radius={12} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.85,weight:3}}/>
+                  <CircleMarker center={[Number(form.latitude),Number(form.longitude)]} radius={12} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.85,weight:3}}/>
                 )}
-                {pontosDesenho.length>1&&modoDesenho==="poligono"&&<Polygon positions={pontosDesenho} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.2,weight:2}}/>}
-                {pontosDesenho.length>1&&modoDesenho==="linha"&&<Polyline positions={pontosDesenho} pathOptions={{color:"#1C7A2C",weight:3}}/>}
+                {pontosDesenho.length>1&&modoDesenho==="poligono"&&(
+                  <Polygon positions={pontosDesenho} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.2,weight:2}}/>
+                )}
+                {pontosDesenho.length>1&&modoDesenho==="linha"&&(
+                  <Polyline positions={pontosDesenho} pathOptions={{color:"#1C7A2C",weight:3}}/>
+                )}
               </MapContainer>
             </div>
+            <p style={{fontSize:11,color:"var(--text-3)",marginTop:4,textAlign:"center"}}>
+              {modoDesenho==="ponto"?"Clique no mapa para marcar o local":
+               modoDesenho==="poligono"?"Clique para adicionar vértices":
+               "Clique para traçar a linha"}
+            </p>
           </>
         )}
       </div>
+
       <div className="modal-acoes">
         <button className="btn-cancelar" onClick={onCancelar}>Cancelar</button>
-        <button className="btn-salvar" onClick={handleSubmit} disabled={salvando} style={{minWidth:140,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+        <button className="btn-salvar" onClick={handleSubmit} disabled={salvando}
+          style={{minWidth:140,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
           {salvando?<><Loader2 size={13} style={{animation:"spin 1s linear infinite"}}/> Salvando...</>:"Salvar alterações"}
         </button>
       </div>
@@ -1150,6 +1512,20 @@ function FormEditar({registro,onSalvar,onCancelar}){
 
 // ── DETALHE ───────────────────────────────────────────────────────────────────
 function Detalhe({registro:r,voltar,registrarCorte,atualizar,tema}){
+  const [editandoInline,setEditandoInline]=useState(false);
+  const [registrando,setRegistrando]=useState(false);
+  // Editar: abre FormEditarTela em tela cheia (mesma experiência do formulário novo)
+  if(editandoInline) return(
+    <FormEditarTela
+      registro={r}
+      onSalvar={async(form)=>{
+        const ok=await atualizar(r.id,form);
+        if(ok){setEditandoInline(false);voltar();}
+      }}
+      onCancelar={()=>setEditandoInline(false)}
+      tema={tema}
+    />
+  );
   const status=statusEfetivo(r);
   const cfg=STATUS[status]||STATUS.baixa;
   const isDark=tema!=="claro";
@@ -1159,31 +1535,22 @@ function Detalhe({registro:r,voltar,registrarCorte,atualizar,tema}){
   const diasDesde=Math.ceil((new Date()-new Date(r.data+"T12:00:00"))/86400000);
   const cresc=r.crescimento_estimado_cm!=null?Number(r.crescimento_estimado_cm).toFixed(1):(diasDesde/7*cfg.cresc*10).toFixed(1);
   const pct=Math.min(100,diasDesde/30*100);
-  const [registrando,setRegistrando]=useState(false);
-  const [alterandoStatus,setAlterandoStatus]=useState(false);
-  const [salvandoStatus,setSalvandoStatus]=useState(false);
   const handleCorte=async()=>{setRegistrando(true);await registrarCorte(r);setRegistrando(false);voltar();};
-  const handleAlterarStatus=async(novoStatus)=>{
-    setSalvandoStatus(true);
-    await atualizar(r.id,{
-      local:r.local,bairro:r.bairro,metragem:r.metragem,
-      data:r.data,status:novoStatus,altura:r.altura,
-      diasCorte:r.dias_corte,obs:r.obs,
-    });
-    setSalvandoStatus(false);
-    setAlterandoStatus(false);
-    voltar();
-  };
   return(
     <div>
-      <button className="btn-voltar-detalhe" onClick={voltar}><ArrowLeft size={14}/> Voltar</button>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <button className="btn-voltar-detalhe" onClick={voltar}><ArrowLeft size={14}/> Voltar</button>
+        <button className="btn-voltar-detalhe" onClick={()=>setEditandoInline(true)}
+          style={{background:"var(--green-5)",color:"#fff",border:"none"}}>
+          ✏️ Editar
+        </button>
+      </div>
       <div className="card" style={{marginTop:12}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:12}}>
           <div>
             <h2 style={{fontSize:21,fontWeight:800,marginBottom:4,color:"var(--text)"}}>{r.local}</h2>
             <p style={{fontSize:13,color:"var(--text-2)"}}>📍 {r.bairro}{r.metragem?` · ${r.metragem}m²`:""}</p>
           </div>
-          {/* ✅ badge com cores corretas por tema */}
           <span className="badge" style={{background:cores.bg,color:cores.texto,fontSize:13,padding:"7px 16px",border:`1px solid ${cfg.cor}40`}}><><StatusDot statusKey={status}/> {cfg.label}</></span>
         </div>
         {r.foto&&(
@@ -1222,43 +1589,6 @@ function Detalhe({registro:r,voltar,registrarCorte,atualizar,tema}){
           </button>
         )}
         {status==="cortada"&&<div className="info-cortada">✅ Área cortada recentemente. Em breve passará para "Grama curta".</div>}
-        {/* ── ALTERAR STATUS ── */}
-        {!alterandoStatus?(
-          <button onClick={()=>setAlterandoStatus(true)}
-            style={{width:"100%",marginTop:10,padding:"11px",background:"var(--bg-soft)",border:"1px solid var(--border-med)",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer",color:"var(--text-2)",display:"flex",alignItems:"center",justifyContent:"center",gap:7,transition:"all .15s"}}>
-            <TrendingUp size={14}/> Alterar situação da grama
-          </button>
-        ):(
-          <div style={{marginTop:10,padding:14,background:"var(--bg-soft)",border:"1px solid var(--border-med)",borderRadius:9}}>
-            <p style={{fontSize:12,fontWeight:700,color:"var(--text)",marginBottom:10}}>Selecione o novo status:</p>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
-              {Object.entries(STATUS).map(([key,cfg])=>{
-                const cores=statusCores(key,isDark);
-                return(
-                  <button key={key} onClick={()=>handleAlterarStatus(key)}
-                    disabled={salvandoStatus||statusEfetivo(r)===key}
-                    style={{
-                      padding:"10px 8px",borderRadius:8,border:`1px solid ${cfg.cor}40`,
-                      background:statusEfetivo(r)===key?cores.bg:"var(--bg-hover)",
-                      color:statusEfetivo(r)===key?cores.texto:"var(--text-2)",
-                      fontSize:12,fontWeight:700,cursor:statusEfetivo(r)===key?"default":"pointer",
-                      display:"flex",alignItems:"center",justifyContent:"center",gap:6,
-                      opacity:statusEfetivo(r)===key?.6:1,transition:"all .15s"
-                    }}>
-                    <StatusDot statusKey={key} size={8}/>
-                    {cfg.label}
-                    {statusEfetivo(r)===key&&" ✓"}
-                  </button>
-                );
-              })}
-            </div>
-            <button onClick={()=>setAlterandoStatus(false)}
-              style={{width:"100%",marginTop:8,padding:"8px",background:"transparent",border:"none",fontSize:12,color:"var(--text-3)",cursor:"pointer",fontWeight:600}}>
-              Cancelar
-            </button>
-            {salvandoStatus&&<p style={{textAlign:"center",fontSize:12,color:"var(--text-3)",marginTop:6}}>Salvando...</p>}
-          </div>
-        )}
         <button onClick={()=>gerarPDFIndividual(r)}
           style={{width:"100%",marginTop:10,padding:"11px",background:"transparent",border:"1px solid var(--border-med)",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer",color:"var(--text-2)",display:"flex",alignItems:"center",justifyContent:"center",gap:7,transition:"all .15s"}}
           onMouseOver={e=>{e.currentTarget.style.background="var(--bg-hover)";e.currentTarget.style.color="var(--text)"}}
@@ -1510,10 +1840,11 @@ function Vistoria({salvar,voltar}){
 function Historico({registros,irParaLocal,tema}){
   const [filtro,setFiltro]=useState("");
   const [filtroB,setFiltroB]=useState("");
+  const [filtroNomeH,setFiltroNomeH]=useState("");
   const lista=registros
     .filter(r=>!filtro||statusEfetivo(r)===filtro)
     .filter(r=>!filtroB||r.bairro.toLowerCase().includes(filtroB.toLowerCase()))
-    .filter(r=>!filtroNome||r.local.toLowerCase().includes(filtroNome.toLowerCase()));
+    .filter(r=>!filtroNomeH||r.local.toLowerCase().includes(filtroNomeH.toLowerCase()));
   return(
     <div className="card">
       <div className="card-header" style={{marginBottom:16,flexWrap:"wrap",gap:10}}>
@@ -1528,6 +1859,12 @@ function Historico({registros,irParaLocal,tema}){
             <BairroBusca value={filtroB} onChange={setFiltroB} placeholder="Buscar bairro..."/>
           </div>
           {filtroB&&<button onClick={()=>setFiltroB("")} style={{background:"transparent",border:"none",cursor:"pointer",color:"var(--text-3)",display:"flex",alignItems:"center"}}><X size={14}/></button>}
+          <div style={{flex:1,minWidth:150}}>
+            <div className="busca-endereco-input-wrap">
+              <input className="busca-endereco-input" value={filtroNomeH} onChange={e=>setFiltroNomeH(e.target.value)} placeholder="Buscar por nome..." style={{padding:"9px 13px"}}/>
+            </div>
+          </div>
+          {filtroNomeH&&<button onClick={()=>setFiltroNomeH("")} style={{background:"transparent",border:"none",cursor:"pointer",color:"var(--text-3)",display:"flex",alignItems:"center"}}><X size={14}/></button>}
         </div>
       </div>
       {lista.length===0?<p className="vazio">Nenhuma vistoria.</p>:<ListaVistorias registros={lista} onClick={r=>irParaLocal(r)} tema={tema}/>}
