@@ -1,4 +1,5 @@
 /* eslint-disable */
+import React from 'react';
 import { useState, useEffect, useRef, useCallback } from "react";
 import { gerarPDFGeral, gerarPDFIndividual } from "./pdf";
 import { supabase } from "./supabase";
@@ -126,6 +127,13 @@ const KPI_ITEMS=[
 ];
 
 function statusEfetivo(r){
+  // Calcular dias desde a vistoria
+  const diasDesde=Math.floor((new Date()-new Date(r.data+"T12:00:00"))/86400000);
+  const diasCorte=r.dias_corte||21;
+  // Se passou do prazo de corte, vira crítico independente do status salvo
+  if(diasDesde>diasCorte&&r.status!=="cortada"){
+    return "critico";
+  }
   if(r.status_calculado&&r.status_calculado!=="atrasada") return r.status_calculado;
   if(r.status==="cortada"){
     const dias=Math.floor((new Date()-new Date(r.criado_em||r.data))/86400000);
@@ -381,7 +389,7 @@ export default function App(){
       metragem:form.metragem?Number(form.metragem):null,
       data:form.data,status:form.status,altura:form.altura,
       dias_corte:form.diasCorte?Number(form.diasCorte):null,
-      obs:form.obs,foto:form.foto||null,
+      obs:form.obs,foto:form.foto||null,empresa:form.empresa||null,
       latitude:form.latitude||null,longitude:form.longitude||null,
       geometria:form.geometria?JSON.stringify(form.geometria):null,
     }]);
@@ -397,7 +405,9 @@ export default function App(){
       metragem:form.metragem?Number(form.metragem):null,
       data:form.data,status:form.status,altura:form.altura,
       dias_corte:form.diasCorte?Number(form.diasCorte):null,
-      obs:form.obs,
+      obs:form.obs,foto:form.foto||null,empresa:form.empresa||null,
+      latitude:form.latitude||null,longitude:form.longitude||null,
+      geometria:form.geometria?JSON.stringify(form.geometria):null,
     }).eq("id",id);
     if(!error){await buscar();showToast("Vistoria atualizada!");}
     else showToast("Erro ao atualizar","erro");
@@ -467,7 +477,7 @@ export default function App(){
           <div className="nav-section">Menu Principal</div>
           {NAV_PRINCIPAL.map(({id,Icon,label,badge})=>(
             <button key={id} className={`nav-item ${tela===id?"active":""}`}
-              onClick={e=>{e.stopPropagation();setTela(id);setNotifAberta(false);setMenuPerfil(false);}}>
+              onClick={e=>{e.stopPropagation();if(id==="gramas"){setFiltroGramas({});setLocalFoco(null);}setTela(id);setNotifAberta(false);setMenuPerfil(false);}}>
               <span className="nav-icon"><Icon size={17}/></span>
               <span>{label}</span>
               {badge>0&&<span className="nav-badge">{badge}</span>}
@@ -476,7 +486,7 @@ export default function App(){
           <div className="nav-section">Registros</div>
           {NAV_REGISTROS.map(({id,Icon,label,badge})=>(
             <button key={id} className={`nav-item ${tela===id?"active":""}`}
-              onClick={e=>{e.stopPropagation();setTela(id);setNotifAberta(false);setMenuPerfil(false);}}>
+              onClick={e=>{e.stopPropagation();if(id==="gramas"){setFiltroGramas({});setLocalFoco(null);}setTela(id);setNotifAberta(false);setMenuPerfil(false);}}>
               <span className="nav-icon"><Icon size={17}/></span>
               <span>{label}</span>
               {badge>0&&<span className="nav-badge">{badge}</span>}
@@ -773,12 +783,14 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
               <div className="chart-badge">{barData.length} bairro(s)</div>
             </div>
             <div className="bar-chart-scroll">
+              <p style={{fontSize:11,color:"var(--text-3)",marginBottom:8}}>💡 Clique em um bairro para ver os locais</p>
               <ResponsiveContainer width="100%" height={Math.min(500,Math.max(240,barData.length*28+48))}>
-                <BarChart data={barData} layout="vertical" barSize={13} margin={{top:4,right:24,left:0,bottom:4}}>
+                <BarChart data={barData} layout="vertical" barSize={13} margin={{top:4,right:24,left:0,bottom:4}}
+                  onClick={(d)=>{if(d&&d.activePayload) irGramas({bairro:d.activePayload[0]?.payload?.bairro});}}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridC} horizontal={false}/>
                   <XAxis type="number" tick={{fontSize:10,fill:isDark?"#555":"#4A5E40"}} allowDecimals={false} axisLine={false} tickLine={false}/>
-                  <YAxis type="category" dataKey="bairro" width={148} tick={{fontSize:11,fill:isDark?"#888":"#4A5E40",fontWeight:600}} axisLine={false} tickLine={false}/>
-                  <Tooltip contentStyle={tip} cursor={{fill:isDark?"rgba(255,255,255,.03)":"rgba(0,0,0,.03)"}} formatter={(v,n)=>[v,n]}/>
+                  <YAxis type="category" dataKey="bairro" width={148} tick={{fontSize:11,fill:isDark?"#888":"#4A5E40",fontWeight:600}} axisLine={false} tickLine={false} cursor="pointer"/>
+                  <Tooltip contentStyle={tip} cursor={{fill:isDark?"rgba(255,255,255,.06)":"rgba(0,0,0,.06)"}} formatter={(v,n)=>[v,n]}/>
                   <Bar dataKey="critico" name="Crítico" stackId="a" fill="#E53935"/>
                   <Bar dataKey="alta" name="Alta" stackId="a" fill="#F57C00"/>
                   <Bar dataKey="media" name="Média" stackId="a" fill="#F9A825"/>
@@ -833,7 +845,14 @@ function Mapa({registros,irParaLocal}){
       </Popup>
     );
     if(geo.tipo==="poligono") return <Polygon key={r.id} positions={geo.pontos} pathOptions={opts}>{popup}</Polygon>;
-    if(geo.tipo==="linha")    return <Polyline key={r.id} positions={geo.pontos} pathOptions={{...opts,fillOpacity:0}}>{popup}</Polyline>;
+    if(geo.tipo==="linha") return(
+      <React.Fragment key={r.id}>
+        <Polyline positions={geo.pontos} pathOptions={{...opts,fillOpacity:0,weight:12,opacity:0}}>
+          {popup}
+        </Polyline>
+        <Polyline positions={geo.pontos} pathOptions={{...opts,fillOpacity:0,weight:3}}/>
+      </React.Fragment>
+    );
     return null;
   };
   return(
@@ -878,19 +897,21 @@ function Mapa({registros,irParaLocal}){
 function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,atualizar,deletar,showToast,tema}){
   const [filtro,setFiltro]=useState(filtroInicial?.status||"");
   const [filtroB,setFiltroB]=useState(filtroInicial?.bairro||"");
+  const [filtroNome,setFiltroNome]=useState("");
   const [sel,setSel]=useState(null);
   const [editando,setEditando]=useState(null);
   const [excluindo,setExcluindo]=useState(null);
   const isDark=tema!=="claro";
 
-  useEffect(()=>{setFiltro(filtroInicial?.status||"");setFiltroB(filtroInicial?.bairro||"");},[filtroInicial]);
+  useEffect(()=>{setFiltro(filtroInicial?.status||"");setFiltroB(filtroInicial?.bairro||"");setFiltroNome("");},[filtroInicial]);
   useEffect(()=>{if(localFoco){setSel(localFoco);setLocalFoco(null);}},[localFoco,setLocalFoco]);
 
   if(sel&&!editando&&!excluindo) return <Detalhe registro={sel} voltar={()=>setSel(null)} registrarCorte={registrarCorte} atualizar={atualizar} tema={tema}/>;
 
   const lista=registros
     .filter(r=>!filtro||statusEfetivo(r)===filtro)
-    .filter(r=>!filtroB||r.bairro.toLowerCase().includes(filtroB.toLowerCase()));
+    .filter(r=>!filtroB||r.bairro.toLowerCase().includes(filtroB.toLowerCase()))
+    .filter(r=>!filtroNome||r.local.toLowerCase().includes(filtroNome.toLowerCase()));
 
   return(
     <div>
@@ -901,10 +922,17 @@ function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,a
             <option value="">Todos os status</option>
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
-          <div style={{flex:1,minWidth:180,maxWidth:300}}>
+          <div style={{flex:1,minWidth:150,maxWidth:220}}>
             <BairroBusca value={filtroB} onChange={setFiltroB} placeholder="Buscar bairro..."/>
           </div>
           {filtroB&&<button onClick={()=>setFiltroB("")} style={{background:"transparent",border:"none",cursor:"pointer",color:"var(--text-3)",display:"flex",alignItems:"center"}}><X size={14}/></button>}
+          <div style={{flex:1,minWidth:150,maxWidth:220}}>
+            <div className="busca-endereco-input-wrap">
+              <input className="busca-endereco-input" value={filtroNome} onChange={e=>setFiltroNome(e.target.value)}
+                placeholder="Buscar por nome..." style={{padding:"9px 13px"}}/>
+            </div>
+          </div>
+          {filtroNome&&<button onClick={()=>setFiltroNome("")} style={{background:"transparent",border:"none",cursor:"pointer",color:"var(--text-3)",display:"flex",alignItems:"center"}}><X size={14}/></button>}
           <span style={{fontSize:12,color:"var(--text-3)",marginLeft:"auto",fontWeight:600}}>{lista.length} local(is)</span>
         </div>
       </div>
@@ -979,15 +1007,58 @@ function FormEditar({registro,onSalvar,onCancelar}){
     altura:registro.altura||"",
     diasCorte:registro.dias_corte||"",
     obs:registro.obs||"",
+    foto:registro.foto||null,
+    empresa:registro.empresa||"",
+    latitude:registro.latitude||null,
+    longitude:registro.longitude||null,
+    geometria:registro.geometria?JSON.parse(registro.geometria):null,
   });
   const [salvando,setSalvando]=useState(false);
+  const [analisando,setAnalisando]=useState(false);
+  const [mapaAberto,setMapaAberto]=useState(false);
+  const [modoDesenho,setModoDesenho]=useState("ponto");
+  const [pontosDesenho,setPontosDesenho]=useState(
+    registro.geometria?JSON.parse(registro.geometria)?.pontos||[]:[]
+  );
+  const [coordsMapa,setCoordsMapa]=useState(
+    registro.latitude&&registro.longitude?[registro.latitude,registro.longitude]:null
+  );
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const handleFotoEditar=async(e)=>{
+    const file=e.target.files[0];if(!file) return;
+    const ext=file.name.split(".").pop();
+    const nomeArq=`foto_${Date.now()}.${ext}`;
+    const{data:uploadData,error:uploadError}=await supabase.storage
+      .from("fotogramas").upload(nomeArq,file,{cacheControl:"3600",upsert:false});
+    if(!uploadError&&uploadData){
+      const{data:{publicUrl}}=supabase.storage.from("fotogramas").getPublicUrl(nomeArq);
+      set("foto",publicUrl);
+    } else {
+      const reader=new FileReader();
+      reader.onload=ev=>set("foto",ev.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleMapClickEditar=(lat,lng)=>{
+    if(modoDesenho==="ponto"){set("latitude",lat);set("longitude",lng);setCoordsMapa([lat,lng]);set("geometria",null);setPontosDesenho([]);}
+  };
+  const handlePolyClickEditar=(ponto)=>{
+    const novos=[...pontosDesenho,ponto];
+    setPontosDesenho(novos);
+    set("geometria",{tipo:modoDesenho,pontos:novos});
+    set("latitude",novos[0][0]);set("longitude",novos[0][1]);
+  };
+  const limparDesenhoEditar=()=>{setPontosDesenho([]);set("geometria",null);set("latitude",null);set("longitude",null);setCoordsMapa(null);};
+
   const handleSubmit=async()=>{
     if(!form.local||form.bairros.length===0||!form.status) return;
     setSalvando(true);
     await onSalvar({...form,bairro:form.bairros.join(" / ")});
     setSalvando(false);
   };
+  const temLoc=form.latitude||form.geometria;
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
       <div className="form-grid">
@@ -1009,7 +1080,67 @@ function FormEditar({registro,onSalvar,onCancelar}){
         </div>
         <div className="form-group"><label>Dias p/ corte</label><input type="number" value={form.diasCorte} onChange={e=>set("diasCorte",e.target.value)}/></div>
       </div>
+      <div className="form-group"><label>Altura estimada</label><input placeholder="Ex: 25 cm" value={form.altura} onChange={e=>set("altura",e.target.value)}/></div>
+      <div className="form-group"><label>Empresa (opcional)</label><input placeholder="Nome da empresa responsável" value={form.empresa} onChange={e=>set("empresa",e.target.value)}/></div>
       <div className="form-group"><label>Observações</label><textarea value={form.obs} onChange={e=>set("obs",e.target.value)}/></div>
+      {/* Foto */}
+      <div className="form-group">
+        <label>Foto</label>
+        <label className="upload-label" style={{cursor:"pointer"}}>
+          <input type="file" accept="image/*" onChange={handleFotoEditar} style={{display:"none"}}/>
+          {!form.foto?(
+            <div className="upload-placeholder" style={{padding:"16px",textAlign:"center"}}>
+              <p style={{fontSize:13,color:"var(--text-2)"}}>📸 Clique para adicionar foto</p>
+            </div>
+          ):(
+            <div className="upload-preview">
+              <img src={form.foto} alt="preview"/>
+              <div className="upload-trocar">🔄 Trocar foto</div>
+            </div>
+          )}
+        </label>
+        {form.foto&&<button onClick={()=>set("foto",null)} style={{fontSize:11,color:"var(--red-t)",background:"transparent",border:"none",cursor:"pointer",marginTop:4,fontWeight:600}}>Remover foto</button>}
+      </div>
+      {/* Mapa */}
+      <div className="form-group">
+        <label>Localização no mapa</label>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <span style={{fontSize:11,color:"var(--text-3)"}}>{temLoc?"Local marcado":"Sem localização"}</span>
+          <button className="btn-toggle-mapa" onClick={()=>setMapaAberto(!mapaAberto)}>
+            {mapaAberto?"Fechar ▲":"Abrir mapa ▼"}
+          </button>
+        </div>
+        {temLoc&&(
+          <div className="coord-info" style={{marginBottom:8}}>
+            <span>{form.geometria?`✅ ${form.geometria.tipo==="poligono"?"Polígono":"Linha"} com ${pontosDesenho.length} pontos`:"✅ Ponto marcado"}</span>
+            <button className="btn-limpar-coord" onClick={limparDesenhoEditar}>Remover</button>
+          </div>
+        )}
+        {mapaAberto&&(
+          <>
+            <div className="draw-toolbar">
+              {[{id:"ponto",icon:"📍",label:"Ponto"},{id:"poligono",icon:"🔷",label:"Polígono"},{id:"linha",icon:"📏",label:"Linha"}].map(m=>(
+                <button key={m.id} className={`draw-btn ${modoDesenho===m.id?"ativo":""}`} onClick={()=>{setModoDesenho(m.id);limparDesenhoEditar();}}>
+                  {m.icon} {m.label}
+                </button>
+              ))}
+            </div>
+            <div className="mapa-marcar">
+              <MapContainer center={coordsMapa||[-23.9608,-46.3336]} zoom={coordsMapa?17:13} style={{height:"100%",width:"100%"}}>
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap"/>
+                {coordsMapa&&<MapaFlyTo coords={coordsMapa}/>}
+                {modoDesenho==="ponto"&&<MapClicker onMark={handleMapClickEditar}/>}
+                {(modoDesenho==="poligono"||modoDesenho==="linha")&&<PolyDrawer modo={modoDesenho} onAddPonto={handlePolyClickEditar}/>}
+                {modoDesenho==="ponto"&&form.latitude&&form.longitude&&(
+                  <CircleMarker center={[form.latitude,form.longitude]} radius={12} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.85,weight:3}}/>
+                )}
+                {pontosDesenho.length>1&&modoDesenho==="poligono"&&<Polygon positions={pontosDesenho} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.2,weight:2}}/>}
+                {pontosDesenho.length>1&&modoDesenho==="linha"&&<Polyline positions={pontosDesenho} pathOptions={{color:"#1C7A2C",weight:3}}/>}
+              </MapContainer>
+            </div>
+          </>
+        )}
+      </div>
       <div className="modal-acoes">
         <button className="btn-cancelar" onClick={onCancelar}>Cancelar</button>
         <button className="btn-salvar" onClick={handleSubmit} disabled={salvando} style={{minWidth:140,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
@@ -1072,6 +1203,7 @@ function Detalhe({registro:r,voltar,registrarCorte,atualizar,tema}){
               {diff<=0?"⚠️ Atrasado!":diff<=3?`🚨 Em ${diff} dias`:`✅ Em ${diff} dias`}
             </span>
           </div>
+          {r.empresa&&<div className="detalhe-item full"><span className="detalhe-label">🏢 Empresa responsável</span><span className="detalhe-val">{r.empresa}</span></div>}
           {r.obs&&<div className="detalhe-item full"><span className="detalhe-label">📝 Observações</span><span className="detalhe-val">{r.obs}</span></div>}
         </div>
         <div className="crescimento-box">
@@ -1146,7 +1278,7 @@ function Vistoria({salvar,voltar}){
   const [form,setForm]=useState({
     local:"",bairros:[],metragem:"",
     data:new Date().toISOString().split("T")[0],
-    status:"",altura:"",diasCorte:"",obs:"",foto:null,
+    status:"",altura:"",diasCorte:"",obs:"",foto:null,empresa:"",
     latitude:null,longitude:null,geometria:null,
   });
   const [erro,setErro]=useState("");
@@ -1362,6 +1494,7 @@ function Vistoria({salvar,voltar}){
         <h3 className="secao-titulo">Detalhes adicionais</h3>
         <div className="form-grid">
           <div className="form-group full"><label>Dias até o próximo corte</label><input type="number" placeholder="Ex: 7" value={form.diasCorte} onChange={e=>set("diasCorte",e.target.value)}/></div>
+          <div className="form-group full"><label>Empresa responsável <span style={{fontWeight:400,textTransform:"none",fontSize:10}}>(opcional)</span></label><input placeholder="Nome da empresa ou contratada..." value={form.empresa||""} onChange={e=>set("empresa",e.target.value)}/></div>
           <div className="form-group full"><label>Observações</label><textarea placeholder="Anote qualquer observação relevante..." value={form.obs} onChange={e=>set("obs",e.target.value)}/></div>
         </div>
       </div>
@@ -1382,7 +1515,8 @@ function Historico({registros,irParaLocal,tema}){
   const [filtroB,setFiltroB]=useState("");
   const lista=registros
     .filter(r=>!filtro||statusEfetivo(r)===filtro)
-    .filter(r=>!filtroB||r.bairro.toLowerCase().includes(filtroB.toLowerCase()));
+    .filter(r=>!filtroB||r.bairro.toLowerCase().includes(filtroB.toLowerCase()))
+    .filter(r=>!filtroNome||r.local.toLowerCase().includes(filtroNome.toLowerCase()));
   return(
     <div className="card">
       <div className="card-header" style={{marginBottom:16,flexWrap:"wrap",gap:10}}>
