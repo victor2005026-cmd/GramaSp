@@ -1,5 +1,4 @@
 /* eslint-disable */
-import React from 'react';
 import { useState, useEffect, useRef, useCallback } from "react";
 import { gerarPDFGeral, gerarPDFIndividual } from "./pdf";
 import { supabase } from "./supabase";
@@ -127,19 +126,20 @@ const KPI_ITEMS=[
 ];
 
 function statusEfetivo(r){
-  // Calcular dias desde a vistoria
-  const diasDesde=Math.floor((new Date()-new Date(r.data+"T12:00:00"))/86400000);
-  const diasCorte=r.dias_corte||21;
-  // Se passou do prazo de corte, vira crítico independente do status salvo
-  if(diasDesde>diasCorte&&r.status!=="cortada"){
-    return "critico";
-  }
-  if(r.status_calculado&&r.status_calculado!=="atrasada") return r.status_calculado;
-  if(r.status==="cortada"){
-    const dias=Math.floor((new Date()-new Date(r.criado_em||r.data))/86400000);
-    if(dias>=2) return "baixa";
-  }
-  return r.status;
+  try{
+    const diasDesde=Math.floor((new Date()-new Date(r.data+"T12:00:00"))/86400000);
+    const diasCorte=Number(r.dias_corte)||21;
+    // Só vira crítico se dias_corte foi definido e passou do prazo
+    if(Number.isFinite(diasDesde)&&diasDesde>diasCorte&&diasCorte>0&&r.status!=="cortada"&&r.status!=="critico"){
+      return "critico";
+    }
+    if(r.status_calculado&&r.status_calculado!=="atrasada") return r.status_calculado;
+    if(r.status==="cortada"){
+      const dias=Math.floor((new Date()-new Date(r.criado_em||r.data))/86400000);
+      if(Number.isFinite(dias)&&dias>=2) return "baixa";
+    }
+    return r.status||"media";
+  }catch(e){return r.status||"media";}
 }
 
 function calcNotif(registros){
@@ -846,12 +846,9 @@ function Mapa({registros,irParaLocal}){
     );
     if(geo.tipo==="poligono") return <Polygon key={r.id} positions={geo.pontos} pathOptions={opts}>{popup}</Polygon>;
     if(geo.tipo==="linha") return(
-      <React.Fragment key={r.id}>
-        <Polyline positions={geo.pontos} pathOptions={{...opts,fillOpacity:0,weight:12,opacity:0}}>
-          {popup}
-        </Polyline>
-        <Polyline positions={geo.pontos} pathOptions={{...opts,fillOpacity:0,weight:3}}/>
-      </React.Fragment>
+      <Polyline key={r.id} positions={geo.pontos} pathOptions={{...opts,fillOpacity:0,weight:16,opacity:.01}}>
+        {popup}
+      </Polyline>
     );
     return null;
   };
