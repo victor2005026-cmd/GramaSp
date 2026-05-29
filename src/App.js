@@ -473,7 +473,8 @@ function BairroBusca({value,onChange,placeholder="Buscar bairro..."}){
       <div className="busca-endereco-input-wrap">
         <input className="busca-endereco-input" value={value}
           onChange={e=>{onChange(e.target.value);setAberto(true);}}
-          placeholder={placeholder} onFocus={()=>setAberto(true)} autoComplete="off"/>
+          placeholder={placeholder} onFocus={()=>setAberto(true)} autoComplete="off"
+          style={{padding:"9px 13px"}}/>
       </div>
       {aberto&&filtrados.length>0&&(
         <div className="busca-endereco-dropdown">
@@ -1052,24 +1053,28 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
               </div>
             </div>
           </div>
-          <div className="chart-card">
-            <div className="chart-head">
+          <div className="chart-card" style={{borderTop:"3px solid var(--green-5)",overflow:"hidden"}}>
+            <div className="chart-head" style={{borderBottom:"1px solid var(--border)",paddingBottom:14}}>
               {bairroFurado?(
                 <div style={{display:"flex",alignItems:"center",gap:8,flex:1,flexWrap:"wrap"}}>
                   <button onClick={()=>setBairroFurado(null)}
-                    style={{background:"var(--bg-soft)",border:"1px solid var(--border-med)",borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:"var(--text-2)",display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
-                    <ArrowLeft size={12}/> Bairros
+                    style={{background:"transparent",border:"1px solid var(--border-med)",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer",color:"var(--text-2)",display:"flex",alignItems:"center",gap:5,flexShrink:0}}>
+                    <ArrowLeft size={12}/> Todos os bairros
                   </button>
+                  <span style={{color:"var(--text-3)",fontSize:16,lineHeight:1}}>›</span>
                   <div style={{flex:1,minWidth:0}}>
-                    <div className="chart-title">📍 {bairroFurado}</div>
-                    <div className="chart-sub">Clique num local para ver detalhes</div>
+                    <div style={{fontWeight:800,fontSize:14,color:"var(--text)",lineHeight:1.2,marginBottom:2}}>{bairroFurado}</div>
+                    <div className="chart-sub">Clique num local para ver os detalhes</div>
                   </div>
-                  <div className="chart-badge" style={{marginLeft:"auto"}}>{localData.length} local(is)</div>
+                  <span style={{fontSize:12,fontWeight:700,color:isDark?"#81C784":"#1C7A2C",background:isDark?"rgba(42,158,64,.12)":"rgba(21,97,35,.08)",padding:"4px 12px",borderRadius:20,border:`1px solid ${isDark?"rgba(42,158,64,.25)":"rgba(21,97,35,.15)"}`,flexShrink:0,whiteSpace:"nowrap"}}>{localData.length} local{localData.length!==1?"is":""}</span>
                 </div>
               ):(
                 <>
-                  <div><div className="chart-title">Situação por bairro</div><div className="chart-sub">Clique no nome ou na barra para ver os locais dentro</div></div>
-                  <div className="chart-badge">{barData.length} bairro(s)</div>
+                  <div>
+                    <div className="chart-title">Situação por bairro</div>
+                    <div className="chart-sub">Clique num bairro para explorar os locais dentro</div>
+                  </div>
+                  <span style={{fontSize:12,fontWeight:700,color:isDark?"#81C784":"#1C7A2C",background:isDark?"rgba(42,158,64,.12)":"rgba(21,97,35,.08)",padding:"4px 12px",borderRadius:20,border:`1px solid ${isDark?"rgba(42,158,64,.25)":"rgba(21,97,35,.15)"}`}}>{barData.length} bairro{barData.length!==1?"s":""}</span>
                 </>
               )}
             </div>
@@ -1129,7 +1134,7 @@ function Inicio({registros,irGramas,notificacoes,tema,irParaLocal}){
                 </ResponsiveContainer>
               )}
             </div>
-            <div className="chart-leg">
+            <div className="chart-leg" style={{borderTop:"1px solid var(--border)",paddingTop:10,marginTop:6}}>
               {bairroFurado
                 ?[...new Set(localData.map(d=>d.statusKey))].sort((a,b)=>(ORD_STATUS[a]||5)-(ORD_STATUS[b]||5)).map(k=>(
                     <div key={k} className="leg-item"><div className="leg-dot" style={{background:STATUS[k]?.cor}}/><span>{STATUS[k]?.label}</span></div>
@@ -1181,11 +1186,14 @@ function Mapa({registros,irParaLocal}){
       </Popup>
     );
     if(geo.tipo==="poligono") return <Polygon key={r.id} positions={geo.pontos} pathOptions={opts}>{popup}</Polygon>;
-    if(geo.tipo==="linha") return(
-      <Polyline key={r.id} positions={geo.pontos} pathOptions={{...opts,fillOpacity:0,weight:16,opacity:.01}}>
+    if(geo.tipo==="linha") return[
+      <Polyline key={`${r.id}-v`} positions={geo.pontos} pathOptions={{color:cfg.cor,weight:4,opacity:.85}}>
+        {popup}
+      </Polyline>,
+      <Polyline key={`${r.id}-h`} positions={geo.pontos} pathOptions={{color:cfg.cor,weight:22,opacity:0}}>
         {popup}
       </Polyline>
-    );
+    ];
     return null;
   };
   return(
@@ -1257,16 +1265,16 @@ function Gramas({registros,filtroInicial,localFoco,setLocalFoco,registrarCorte,a
             {Object.entries(STATUS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
           </select>
           <div style={{flex:1,minWidth:150,maxWidth:220}}>
-            <BairroBusca value={filtroB} onChange={setFiltroB} placeholder="Buscar bairro..."/>
-          </div>
-          {filtroB&&<button onClick={()=>setFiltroB("")} style={{background:"transparent",border:"none",cursor:"pointer",color:"var(--text-3)",display:"flex",alignItems:"center"}}><X size={14}/></button>}
-          <div style={{flex:1,minWidth:150,maxWidth:220}}>
             <div className="busca-endereco-input-wrap">
               <input className="busca-endereco-input" value={filtroNome} onChange={e=>setFiltroNome(e.target.value)}
                 placeholder="Buscar por nome..." style={{padding:"9px 13px"}}/>
             </div>
           </div>
           {filtroNome&&<button onClick={()=>setFiltroNome("")} style={{background:"transparent",border:"none",cursor:"pointer",color:"var(--text-3)",display:"flex",alignItems:"center"}}><X size={14}/></button>}
+          <div style={{flex:1,minWidth:150,maxWidth:220}}>
+            <BairroBusca value={filtroB} onChange={setFiltroB} placeholder="Buscar bairro..."/>
+          </div>
+          {filtroB&&<button onClick={()=>setFiltroB("")} style={{background:"transparent",border:"none",cursor:"pointer",color:"var(--text-3)",display:"flex",alignItems:"center"}}><X size={14}/></button>}
           <span style={{fontSize:12,color:"var(--text-3)",marginLeft:"auto",fontWeight:600}}>{lista.length} local(is)</span>
         </div>
       </div>

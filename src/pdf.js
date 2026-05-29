@@ -49,12 +49,24 @@ async function gerarPDFGeral(registros){
 
   // Mesma lógica do statusEfetivo do App.js
   const stEfetivo=(r)=>{
-    if(r.status_calculado&&r.status_calculado!=="atrasada") return r.status_calculado;
-    if(r.status==="cortada"){
-      const d=Math.floor((new Date()-new Date(r.criado_em||r.data))/86400000);
-      if(d>=2) return "baixa";
-    }
-    return r.status;
+    try{
+      const hoje=new Date();
+      const dataRef=r.data?new Date(r.data+"T12:00:00"):new Date(r.criado_em);
+      const diasDesde=Math.floor((hoje-dataRef)/86400000);
+      if(!Number.isFinite(diasDesde)||diasDesde<0) return r.status||"media";
+      if(r.status==="cortada"){
+        if(diasDesde<2)  return "cortada";
+        if(diasDesde<8)  return "baixa";
+        if(diasDesde<16) return "media";
+        if(diasDesde<25) return "alta";
+        return "critico";
+      }
+      const diasCorte=Number(r.dias_corte)||30;
+      const atraso=diasDesde-diasCorte;
+      if(atraso>=7)  return "critico";
+      if(atraso>=0)  return "alta";
+      return r.status||"media";
+    }catch(e){return r.status||"media";}
   };
   const regs=registros.map(r=>({...r,st:stEfetivo(r)}));
 
@@ -206,12 +218,27 @@ async function gerarPDFIndividual(registro){
   const vermelho=[229,57,53],laranja=[245,124,0],amarelo=[249,168,37],
         verde2=[46,125,50],azul=[21,101,192];
 
-  let st=registro.status_calculado&&registro.status_calculado!=="atrasada"
-    ?registro.status_calculado:registro.status;
-  if(registro.status==="cortada"){
-    const d=Math.floor((new Date()-new Date(registro.criado_em||registro.data))/86400000);
-    if(d>=2) st="baixa";
-  }
+  const _stEf=(r)=>{
+    try{
+      const hoje=new Date();
+      const dataRef=r.data?new Date(r.data+"T12:00:00"):new Date(r.criado_em);
+      const diasDesde=Math.floor((hoje-dataRef)/86400000);
+      if(!Number.isFinite(diasDesde)||diasDesde<0) return r.status||"media";
+      if(r.status==="cortada"){
+        if(diasDesde<2)  return "cortada";
+        if(diasDesde<8)  return "baixa";
+        if(diasDesde<16) return "media";
+        if(diasDesde<25) return "alta";
+        return "critico";
+      }
+      const diasCorte=Number(r.dias_corte)||30;
+      const atraso=diasDesde-diasCorte;
+      if(atraso>=7)  return "critico";
+      if(atraso>=0)  return "alta";
+      return r.status||"media";
+    }catch(e){return r.status||"media";}
+  };
+  let st=_stEf(registro);
   const corSt=st==="critico"?vermelho:st==="alta"?laranja:st==="media"?amarelo:st==="baixa"?verde2:azul;
   const labelSt=st==="critico"?"Critico":st==="alta"?"Alta":st==="media"?"Media":st==="baixa"?"Curta":"Cortada";
 
