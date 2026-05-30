@@ -1,209 +1,3 @@
-/* eslint-disable */
-// ── FORM EDITAR TELA COMPLETA ────────────────────────────────────────────────
-function FormEditarTela({registro,onSalvar,onCancelar,tema}){
-  const bairrosIniciais=registro.bairro?.split("/").map(b=>b.trim()).filter(b=>BAIRROS.includes(b))||[];
-  let geoInicial=null;let pontosIniciais=[];
-  try{
-    if(registro.geometria){
-      geoInicial=typeof registro.geometria==="string"?JSON.parse(registro.geometria):registro.geometria;
-      pontosIniciais=geoInicial?.pontos||[];
-    }
-  }catch(e){}
-  const [form,setForm]=useState({
-    local:registro.local||"",
-    bairros:bairrosIniciais.length>0?bairrosIniciais:[registro.bairro].filter(Boolean),
-    metragem:registro.metragem||"",
-    data:registro.data||"",
-    status:registro.status||"",
-    altura:registro.altura||"",
-    diasCorte:registro.dias_corte||"",
-    obs:registro.obs||"",
-    foto:registro.foto||null,
-    latitude:registro.latitude||null,
-    longitude:registro.longitude||null,
-    geometria:geoInicial,
-  });
-  const [salvando,setSalvando]=useState(false);
-  const [erro,setErro]=useState("");
-  const [mapaAberto,setMapaAberto]=useState(!!(registro.latitude||geoInicial));
-  const [modoDesenho,setModoDesenho]=useState(geoInicial?.tipo||"ponto");
-  const [pontosDesenho,setPontosDesenho]=useState(pontosIniciais);
-  const [coordsMapa,setCoordsMapa]=useState(
-    registro.latitude&&registro.longitude?[Number(registro.latitude),Number(registro.longitude)]:null
-  );
-  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-
-  const handleFoto=async(e)=>{
-    const file=e.target.files[0];if(!file) return;
-    const ext=file.name.split(".").pop();
-    const nomeArq=`foto_${Date.now()}.${ext}`;
-    const{data:uploadData,error:uploadError}=await supabase.storage
-      .from("fotogramas").upload(nomeArq,file,{cacheControl:"3600",upsert:false});
-    if(!uploadError&&uploadData){
-      const{data:{publicUrl}}=supabase.storage.from("fotogramas").getPublicUrl(nomeArq);
-      set("foto",publicUrl);
-    }else{
-      const reader=new FileReader();
-      reader.onload=ev=>set("foto",ev.target.result);
-      reader.readAsDataURL(file);
-    }
-  };
-  const handleMapClick=(lat,lng)=>{
-    if(modoDesenho==="ponto"){set("latitude",lat);set("longitude",lng);setCoordsMapa([lat,lng]);set("geometria",null);setPontosDesenho([]);}
-  };
-  const handlePolyClick=(ponto)=>{
-    const novos=[...pontosDesenho,ponto];setPontosDesenho(novos);
-    set("geometria",{tipo:modoDesenho,pontos:novos});
-    set("latitude",novos[0][0]);set("longitude",novos[0][1]);
-  };
-  const limpar=()=>{setPontosDesenho([]);set("geometria",null);set("latitude",null);set("longitude",null);setCoordsMapa(null);};
-  const handleSubmit=async()=>{
-    if(!form.local){setErro("Informe o local.");return;}
-    if(form.bairros.length===0){setErro("Selecione ao menos um bairro.");return;}
-    if(!form.status){setErro("Selecione a classificação.");return;}
-    setErro("");setSalvando(true);
-    await onSalvar({...form,bairro:form.bairros.join(" / ")});
-    setSalvando(false);
-  };
-  const temLoc=form.latitude||form.geometria;
-  const isDark=tema!=="claro";
-  return(
-    <div className="vistoria-completa">
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
-        <button className="btn-voltar-detalhe" onClick={onCancelar}><ArrowLeft size={14}/> Voltar</button>
-      </div>
-      <div className="card vistoria-header">
-        <h2 style={{fontSize:17,fontWeight:800,marginBottom:4,color:"var(--text)"}}>Editar vistoria</h2>
-        <p style={{fontSize:13,color:"var(--text-2)"}}>{registro.local}</p>
-      </div>
-      {erro&&<div className="msg-erro">{erro}</div>}
-      {/* Localização */}
-      <div className="card vistoria-secao">
-        <h3 className="secao-titulo">Localização</h3>
-        <div className="form-group" style={{marginBottom:14}}>
-          <label>Local / Endereço *</label>
-          <input value={form.local} onChange={e=>set("local",e.target.value)} placeholder="Nome ou endereço"/>
-        </div>
-        <div className="form-grid-mobile" style={{marginBottom:14}}>
-          <div className="form-group"><label>Metragem (m²)</label><input type="number" value={form.metragem} onChange={e=>set("metragem",e.target.value)}/></div>
-          <div className="form-group"><label>Data da vistoria</label><input type="date" value={form.data} onChange={e=>set("data",e.target.value)}/></div>
-          <div className="form-group"><label>Altura estimada</label><input value={form.altura} onChange={e=>set("altura",e.target.value)} placeholder="Ex: 25 cm"/></div>
-        </div>
-        <div className="form-group" style={{marginBottom:14}}>
-          <label>Bairros *</label>
-          <BairrosSelect value={form.bairros} onChange={v=>set("bairros",v)}/>
-        </div>
-        {/* Mapa */}
-        <div className="mapa-marcar-wrapper">
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
-            <div>
-              <p style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:2}}>Localização no mapa <span style={{fontSize:11,fontWeight:500,color:"var(--text-3)"}}>(opcional)</span></p>
-              <p style={{fontSize:11,color:"var(--text-3)"}}>{temLoc?"Local marcado — clique para ajustar":"Marque o local no mapa"}</p>
-            </div>
-            <button className="btn-toggle-mapa" onClick={()=>setMapaAberto(!mapaAberto)}>
-              {mapaAberto?"Fechar mapa ▲":"Abrir mapa ▼"}
-            </button>
-          </div>
-          {temLoc&&(
-            <div className="coord-info">
-              <span>{form.geometria?`✅ ${form.geometria.tipo==="poligono"?"Polígono":"Linha"} com ${pontosDesenho.length} pontos`:"✅ Ponto marcado"}</span>
-              <button className="btn-limpar-coord" onClick={limpar}>Remover</button>
-            </div>
-          )}
-          {mapaAberto&&(
-            <>
-              <div className="draw-toolbar">
-                <span style={{fontSize:10,fontWeight:800,color:"var(--text-3)",textTransform:"uppercase",letterSpacing:".06em"}}>Modo:</span>
-                {[{id:"ponto",icon:"📍",label:"Ponto"},{id:"poligono",icon:"🔷",label:"Polígono"},{id:"linha",icon:"📏",label:"Linha"}].map(m=>(
-                  <button key={m.id} className={`draw-btn ${modoDesenho===m.id?"ativo":""}`} onClick={()=>{setModoDesenho(m.id);limpar();}}>
-                    {m.icon} {m.label}
-                  </button>
-                ))}
-                {pontosDesenho.length>0&&<span style={{fontSize:11,color:"var(--text-3)",marginLeft:4}}>{pontosDesenho.length} ponto(s)</span>}
-              </div>
-              <div className="mapa-marcar">
-                <MapContainer center={coordsMapa||[-23.9608,-46.3336]} zoom={coordsMapa?16:13} style={{height:"100%",width:"100%"}}>
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap"/>
-                  {coordsMapa&&<MapaFlyTo coords={coordsMapa}/>}
-                  {modoDesenho==="ponto"&&<MapClicker onMark={handleMapClick}/>}
-                  {(modoDesenho==="poligono"||modoDesenho==="linha")&&<PolyDrawer modo={modoDesenho} onAddPonto={handlePolyClick}/>}
-                  {modoDesenho==="ponto"&&form.latitude&&form.longitude&&(
-                    <CircleMarker center={[Number(form.latitude),Number(form.longitude)]} radius={12} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.85,weight:3}}/>
-                  )}
-                  {(modoDesenho==="poligono"||modoDesenho==="linha")&&pontosDesenho.length>0&&(
-                    <>
-                      {pontosDesenho.map((p,i)=><CircleMarker key={i} center={p} radius={6} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:1,weight:2}}/>)}
-                      {pontosDesenho.length>1&&modoDesenho==="poligono"&&<Polygon positions={pontosDesenho} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.2,weight:2,dashArray:"6"}}/>}
-                      {pontosDesenho.length>1&&modoDesenho==="linha"&&<Polyline positions={pontosDesenho} pathOptions={{color:"#1C7A2C",weight:3,dashArray:"8"}}/>}
-                    </>
-                  )}
-                </MapContainer>
-              </div>
-              <p className="mapa-instrucao">
-                {modoDesenho==="ponto"&&"Clique no mapa para marcar o local exato"}
-                {modoDesenho==="poligono"&&"Clique para adicionar vértices do polígono"}
-                {modoDesenho==="linha"&&"Clique para traçar uma linha"}
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-      {/* Foto */}
-      <div className="card vistoria-secao">
-        <h3 className="secao-titulo">Foto</h3>
-        <div className="upload-area">
-          <label className="upload-label">
-            <input type="file" accept="image/*" onChange={handleFoto} style={{display:"none"}}/>
-            {!form.foto?(
-              <div className="upload-placeholder">
-                <div className="upload-icon">📸</div>
-                <p style={{fontSize:14,fontWeight:700,marginBottom:4,color:"var(--text)"}}>Clique para enviar foto</p>
-                <p style={{fontSize:12,color:"var(--text-3)"}}>JPG, PNG até 10MB</p>
-              </div>
-            ):(
-              <div className="upload-preview">
-                <img src={form.foto} alt="preview"/>
-                <div className="upload-trocar">🔄 Clique para trocar a foto</div>
-              </div>
-            )}
-          </label>
-          {form.foto&&<button onClick={()=>set("foto",null)} style={{fontSize:12,color:"var(--red-t)",background:"transparent",border:"none",cursor:"pointer",marginTop:6,fontWeight:600}}>Remover foto</button>}
-        </div>
-      </div>
-      {/* Classificação */}
-      <div className="card vistoria-secao">
-        <h3 className="secao-titulo">Classificação da Grama</h3>
-        <div className="status-btns">
-          {Object.entries(STATUS).map(([key,cfg])=>(
-            <button key={key} type="button"
-              className={`status-btn ${form.status===key?"selecionado":""}`}
-              style={form.status===key?{background:cfg.bgDark,borderColor:cfg.cor,color:cfg.txtDark,border:`1px solid ${cfg.cor}`}:{}}
-              onClick={()=>{set("status",key);set("diasCorte",cfg.dias);}}>
-              <span style={{marginBottom:6,display:"flex",justifyContent:"center"}}><StatusDot statusKey={key} size={18}/></span>
-              <strong>{cfg.label}</strong>
-              <span style={{display:"block",fontSize:10,opacity:.6,marginTop:2}}>{cfg.dias}d p/ corte</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      {/* Detalhes */}
-      <div className="card vistoria-secao">
-        <h3 className="secao-titulo">Detalhes adicionais</h3>
-        <div className="form-grid">
-          <div className="form-group full"><label>Dias até o próximo corte</label><input type="number" value={form.diasCorte} onChange={e=>set("diasCorte",e.target.value)}/></div>
-          <div className="form-group full"><label>Observações</label><textarea value={form.obs} onChange={e=>set("obs",e.target.value)}/></div>
-        </div>
-      </div>
-      <div className="vistoria-acoes">
-        <button className="btn-voltar" onClick={onCancelar}>Cancelar</button>
-        <button className="btn-salvar" onClick={handleSubmit} disabled={salvando}
-          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
-          {salvando?<><Loader2 size={14} style={{animation:"spin 1s linear infinite"}}/> Salvando...</>:"Salvar alterações"}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /* eslint-disable */
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -621,7 +415,7 @@ export default function App(){
 
   const buscar=async()=>{
     setCarregando(true);
-    const{data,error}=await supabase.from("vistorias_calculadas").select("*").order("criado_em",{ascending:false});
+    const{data,error}=await supabase.from("vistorias").select("*").order("criado_em",{ascending:false});
     if(!error&&data) setRegistros(data);
     setCarregando(false);
   };
@@ -1171,7 +965,7 @@ function Mapa({registros,irParaLocal}){
   const renderGeo=(r)=>{
     const status=statusEfetivo(r);const cfg=STATUS[status]||STATUS.baixa;
     let geo=null;
-    try{geo=r.geometria?JSON.parse(r.geometria):null;}catch(e){}
+    try{geo=r.geometria?(typeof r.geometria==="string"?JSON.parse(r.geometria):r.geometria):null;}catch(e){}
     if(!geo) return null;
     const opts={color:cfg.cor,fillColor:cfg.cor,fillOpacity:.35,weight:3};
     const popup=(
@@ -1372,9 +1166,9 @@ function FormEditar_UNUSED({registro,onSalvar,onCancelar}){
     const ext=file.name.split(".").pop();
     const nomeArq=`foto_${Date.now()}.${ext}`;
     const{data:uploadData,error:uploadError}=await supabase.storage
-      .from("fotogramas").upload(nomeArq,file,{cacheControl:"3600",upsert:false});
+      .from("fotos-gramas").upload(nomeArq,file,{cacheControl:"3600",upsert:false});
     if(!uploadError&&uploadData){
-      const{data:{publicUrl}}=supabase.storage.from("fotogramas").getPublicUrl(nomeArq);
+      const{data:{publicUrl}}=supabase.storage.from("fotos-gramas").getPublicUrl(nomeArq);
       set("foto",publicUrl);
     }else{
       const reader=new FileReader();
@@ -1512,6 +1306,207 @@ function FormEditar_UNUSED({registro,onSalvar,onCancelar}){
         <button className="btn-salvar" onClick={handleSubmit} disabled={salvando}
           style={{minWidth:140,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
           {salvando?<><Loader2 size={13} style={{animation:"spin 1s linear infinite"}}/> Salvando...</>:"Salvar alterações"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── FORM EDITAR TELA COMPLETA ────────────────────────────────────────────────
+function FormEditarTela({registro,onSalvar,onCancelar,tema}){
+  const bairrosIniciais=registro.bairro?.split("/").map(b=>b.trim()).filter(b=>BAIRROS.includes(b))||[];
+  let geoInicial=null;let pontosIniciais=[];
+  try{
+    if(registro.geometria){
+      geoInicial=typeof registro.geometria==="string"?JSON.parse(registro.geometria):registro.geometria;
+      pontosIniciais=geoInicial?.pontos||[];
+    }
+  }catch(e){}
+  const [form,setForm]=useState({
+    local:registro.local||"",
+    bairros:bairrosIniciais.length>0?bairrosIniciais:[registro.bairro].filter(Boolean),
+    metragem:registro.metragem||"",
+    data:registro.data||"",
+    status:registro.status||"",
+    altura:registro.altura||"",
+    diasCorte:registro.dias_corte||"",
+    obs:registro.obs||"",
+    foto:registro.foto||null,
+    latitude:registro.latitude||null,
+    longitude:registro.longitude||null,
+    geometria:geoInicial,
+  });
+  const [salvando,setSalvando]=useState(false);
+  const [erro,setErro]=useState("");
+  const [mapaAberto,setMapaAberto]=useState(!!(registro.latitude||geoInicial));
+  const [modoDesenho,setModoDesenho]=useState(geoInicial?.tipo||"ponto");
+  const [pontosDesenho,setPontosDesenho]=useState(pontosIniciais);
+  const [coordsMapa,setCoordsMapa]=useState(
+    registro.latitude&&registro.longitude?[Number(registro.latitude),Number(registro.longitude)]:null
+  );
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const handleFoto=async(e)=>{
+    const file=e.target.files[0];if(!file) return;
+    const ext=file.name.split(".").pop();
+    const nomeArq=`foto_${Date.now()}.${ext}`;
+    const{data:uploadData,error:uploadError}=await supabase.storage
+      .from("fotos-gramas").upload(nomeArq,file,{cacheControl:"3600",upsert:false});
+    if(!uploadError&&uploadData){
+      const{data:{publicUrl}}=supabase.storage.from("fotos-gramas").getPublicUrl(nomeArq);
+      set("foto",publicUrl);
+    }else{
+      const reader=new FileReader();
+      reader.onload=ev=>set("foto",ev.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+  const handleMapClick=(lat,lng)=>{
+    if(modoDesenho==="ponto"){set("latitude",lat);set("longitude",lng);setCoordsMapa([lat,lng]);set("geometria",null);setPontosDesenho([]);}
+  };
+  const handlePolyClick=(ponto)=>{
+    const novos=[...pontosDesenho,ponto];setPontosDesenho(novos);
+    set("geometria",{tipo:modoDesenho,pontos:novos});
+    set("latitude",novos[0][0]);set("longitude",novos[0][1]);
+  };
+  const limpar=()=>{setPontosDesenho([]);set("geometria",null);set("latitude",null);set("longitude",null);setCoordsMapa(null);};
+  const handleSubmit=async()=>{
+    if(!form.local){setErro("Informe o local.");return;}
+    if(form.bairros.length===0){setErro("Selecione ao menos um bairro.");return;}
+    if(!form.status){setErro("Selecione a classificação.");return;}
+    setErro("");setSalvando(true);
+    await onSalvar({...form,bairro:form.bairros.join(" / ")});
+    setSalvando(false);
+  };
+  const temLoc=form.latitude||form.geometria;
+  const isDark=tema!=="claro";
+  return(
+    <div className="vistoria-completa">
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+        <button className="btn-voltar-detalhe" onClick={onCancelar}><ArrowLeft size={14}/> Voltar</button>
+      </div>
+      <div className="card vistoria-header">
+        <h2 style={{fontSize:17,fontWeight:800,marginBottom:4,color:"var(--text)"}}>Editar vistoria</h2>
+        <p style={{fontSize:13,color:"var(--text-2)"}}>{registro.local}</p>
+      </div>
+      {erro&&<div className="msg-erro">{erro}</div>}
+      <div className="card vistoria-secao">
+        <h3 className="secao-titulo">Localização</h3>
+        <div className="form-group" style={{marginBottom:14}}>
+          <label>Local / Endereço *</label>
+          <input value={form.local} onChange={e=>set("local",e.target.value)} placeholder="Nome ou endereço"/>
+        </div>
+        <div className="form-grid-mobile" style={{marginBottom:14}}>
+          <div className="form-group"><label>Metragem (m²)</label><input type="number" value={form.metragem} onChange={e=>set("metragem",e.target.value)}/></div>
+          <div className="form-group"><label>Data da vistoria</label><input type="date" value={form.data} onChange={e=>set("data",e.target.value)}/></div>
+          <div className="form-group"><label>Altura estimada</label><input value={form.altura} onChange={e=>set("altura",e.target.value)} placeholder="Ex: 25 cm"/></div>
+        </div>
+        <div className="form-group" style={{marginBottom:14}}>
+          <label>Bairros *</label>
+          <BairrosSelect value={form.bairros} onChange={v=>set("bairros",v)}/>
+        </div>
+        <div className="mapa-marcar-wrapper">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+            <div>
+              <p style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:2}}>Localização no mapa <span style={{fontSize:11,fontWeight:500,color:"var(--text-3)"}}>(opcional)</span></p>
+              <p style={{fontSize:11,color:"var(--text-3)"}}>{temLoc?"Local marcado — clique para ajustar":"Marque o local no mapa"}</p>
+            </div>
+            <button className="btn-toggle-mapa" onClick={()=>setMapaAberto(!mapaAberto)}>
+              {mapaAberto?"Fechar mapa ▲":"Abrir mapa ▼"}
+            </button>
+          </div>
+          {temLoc&&(
+            <div className="coord-info">
+              <span>{form.geometria?`✅ ${form.geometria.tipo==="poligono"?"Polígono":"Linha"} com ${pontosDesenho.length} pontos`:"✅ Ponto marcado"}</span>
+              <button className="btn-limpar-coord" onClick={limpar}>Remover</button>
+            </div>
+          )}
+          {mapaAberto&&(
+            <>
+              <div className="draw-toolbar">
+                <span style={{fontSize:10,fontWeight:800,color:"var(--text-3)",textTransform:"uppercase",letterSpacing:".06em"}}>Modo:</span>
+                {[{id:"ponto",icon:"📍",label:"Ponto"},{id:"poligono",icon:"🔷",label:"Polígono"},{id:"linha",icon:"📏",label:"Linha"}].map(m=>(
+                  <button key={m.id} className={`draw-btn ${modoDesenho===m.id?"ativo":""}`} onClick={()=>{setModoDesenho(m.id);limpar();}}>
+                    {m.icon} {m.label}
+                  </button>
+                ))}
+                {pontosDesenho.length>0&&<span style={{fontSize:11,color:"var(--text-3)",marginLeft:4}}>{pontosDesenho.length} ponto(s)</span>}
+              </div>
+              <div className="mapa-marcar">
+                <MapContainer center={coordsMapa||[-23.9608,-46.3336]} zoom={coordsMapa?16:13} style={{height:"100%",width:"100%"}}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap"/>
+                  {coordsMapa&&<MapaFlyTo coords={coordsMapa}/>}
+                  {modoDesenho==="ponto"&&<MapClicker onMark={handleMapClick}/>}
+                  {(modoDesenho==="poligono"||modoDesenho==="linha")&&<PolyDrawer modo={modoDesenho} onAddPonto={handlePolyClick}/>}
+                  {modoDesenho==="ponto"&&form.latitude&&form.longitude&&(
+                    <CircleMarker center={[Number(form.latitude),Number(form.longitude)]} radius={12} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.85,weight:3}}/>
+                  )}
+                  {(modoDesenho==="poligono"||modoDesenho==="linha")&&pontosDesenho.length>0&&(
+                    <>
+                      {pontosDesenho.map((p,i)=><CircleMarker key={i} center={p} radius={6} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:1,weight:2}}/>)}
+                      {pontosDesenho.length>1&&modoDesenho==="poligono"&&<Polygon positions={pontosDesenho} pathOptions={{color:"#1C7A2C",fillColor:"#2A9E40",fillOpacity:.2,weight:2,dashArray:"6"}}/>}
+                      {pontosDesenho.length>1&&modoDesenho==="linha"&&<Polyline positions={pontosDesenho} pathOptions={{color:"#1C7A2C",weight:3,dashArray:"8"}}/>}
+                    </>
+                  )}
+                </MapContainer>
+              </div>
+              <p className="mapa-instrucao">
+                {modoDesenho==="ponto"&&"Clique no mapa para marcar o local exato"}
+                {modoDesenho==="poligono"&&"Clique para adicionar vértices do polígono"}
+                {modoDesenho==="linha"&&"Clique para traçar uma linha"}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="card vistoria-secao">
+        <h3 className="secao-titulo">Foto</h3>
+        <div className="upload-area">
+          <label className="upload-label">
+            <input type="file" accept="image/*" onChange={handleFoto} style={{display:"none"}}/>
+            {!form.foto?(
+              <div className="upload-placeholder">
+                <div className="upload-icon">📸</div>
+                <p style={{fontSize:14,fontWeight:700,marginBottom:4,color:"var(--text)"}}>Clique para enviar foto</p>
+                <p style={{fontSize:12,color:"var(--text-3)"}}>JPG, PNG até 10MB</p>
+              </div>
+            ):(
+              <div className="upload-preview">
+                <img src={form.foto} alt="preview"/>
+                <div className="upload-trocar">🔄 Clique para trocar a foto</div>
+              </div>
+            )}
+          </label>
+          {form.foto&&<button onClick={()=>set("foto",null)} style={{fontSize:12,color:"var(--red-t)",background:"transparent",border:"none",cursor:"pointer",marginTop:6,fontWeight:600}}>Remover foto</button>}
+        </div>
+      </div>
+      <div className="card vistoria-secao">
+        <h3 className="secao-titulo">Classificação da Grama</h3>
+        <div className="status-btns">
+          {Object.entries(STATUS).map(([key,cfg])=>(
+            <button key={key} type="button"
+              className={`status-btn ${form.status===key?"selecionado":""}`}
+              style={form.status===key?{background:cfg.bgDark,borderColor:cfg.cor,color:cfg.txtDark,border:`1px solid ${cfg.cor}`}:{}}
+              onClick={()=>{set("status",key);set("diasCorte",cfg.dias);}}>
+              <span style={{marginBottom:6,display:"flex",justifyContent:"center"}}><StatusDot statusKey={key} size={18}/></span>
+              <strong>{cfg.label}</strong>
+              <span style={{display:"block",fontSize:10,opacity:.6,marginTop:2}}>{cfg.dias}d p/ corte</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="card vistoria-secao">
+        <h3 className="secao-titulo">Detalhes adicionais</h3>
+        <div className="form-grid">
+          <div className="form-group full"><label>Dias até o próximo corte</label><input type="number" value={form.diasCorte} onChange={e=>set("diasCorte",e.target.value)}/></div>
+          <div className="form-group full"><label>Observações</label><textarea value={form.obs} onChange={e=>set("obs",e.target.value)}/></div>
+        </div>
+      </div>
+      <div className="vistoria-acoes">
+        <button className="btn-voltar" onClick={onCancelar}>Cancelar</button>
+        <button className="btn-salvar" onClick={handleSubmit} disabled={salvando}
+          style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
+          {salvando?<><Loader2 size={14} style={{animation:"spin 1s linear infinite"}}/> Salvando...</>:"Salvar alterações"}
         </button>
       </div>
     </div>
